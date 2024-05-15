@@ -2,7 +2,7 @@
 , rustPlatform
 , fetchFromGitHub
 , pkg-config
-, wrapGAppsHook3
+, wrapGAppsHook
 , gtk3
 , librsvg
 , gtk-layer-shell
@@ -22,7 +22,7 @@ rustPlatform.buildRustPackage rec {
 
   nativeBuildInputs = [
     pkg-config
-    wrapGAppsHook3
+    wrapGAppsHook
   ];
 
   buildInputs = [

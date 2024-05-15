@@ -1,4 +1,7 @@
 /target
 /**/target
-/result
-/result-*
+result
+result-*
+*rc
+!*rc/
+.direnv

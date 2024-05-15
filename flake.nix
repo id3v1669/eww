@@ -1,77 +1,63 @@
 {
   inputs = {
-    flake-compat = {
-      url = "github:edolstra/flake-compat";
-      flake = false;
-    };
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    systems.url = "github:nix-systems/default-linux";
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-compat }:
+  outputs = inputs @
+  { self
+  , nixpkgs
+  , systems
+  }:
+  let
+    pkgsFor = system: import nixpkgs { inherit system; }; #overlays
+    
+    eachSystem = nixpkgs.lib.genAttrs (import systems);
+  in 
+  {
+    packages = eachSystem (system: rec 
+    {
+      eww = nixpkgs.legacyPackages.${system}.callPackage ./eww.nix { };
+
+      eww-wayland = nixpkgs.lib.warn
+        "`eww-wayland` is deprecated due to eww building with both X11 and wayland support by default. Use `eww` instead."
+        eww;
+        
+      default = eww;
+    });
+
+
+    devShells = eachSystem (system:
     let
-      overlays = [ (import rust-overlay) self.overlays.default ];
-      pkgsFor = system: import nixpkgs { inherit system overlays; };
+      pkgs = pkgsFor system;
+    in
+    {
+      default = pkgs.mkShell {
+        name = "eww-devel";
 
-      targetSystems = [ "aarch64-linux" "x86_64-linux" ];
-      mkRustToolchain = pkgs:
-        pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-    in {
-      overlays.default = final: prev: {
-        inherit (self.packages.${prev.system}) eww eww-wayland;
+        nativeBuildInputs = with pkgs; [
+          # Compilers
+          cargo
+          rustc
+          scdoc
+
+          # Req
+          gtk3
+          gtk-layer-shell
+          libdbusmenu-gtk3
+          librsvg
+
+          # Tools
+          pkg-config
+          gdb
+          gnumake
+          rust-analyzer
+          rustfmt
+          strace
+        ];
       };
+    });
 
-      packages = nixpkgs.lib.genAttrs targetSystems (system:
-        let
-          pkgs = pkgsFor system;
-          rust = mkRustToolchain pkgs;
-          rustPlatform = pkgs.makeRustPlatform {
-            cargo = rust;
-            rustc = rust;
-          };
-          version = (builtins.fromTOML
-            (builtins.readFile ./crates/eww/Cargo.toml)).package.version;
-        in rec {
-          eww = rustPlatform.buildRustPackage {
-            version = "${version}-dirty";
-            pname = "eww";
-
-            src = ./.;
-            cargoLock.lockFile = ./Cargo.lock;
-            cargoBuildFlags = [ "--bin" "eww" ];
-
-            nativeBuildInputs = with pkgs; [ pkg-config wrapGAppsHook ];
-            buildInputs = with pkgs; [
-              gtk3
-              librsvg
-              gtk-layer-shell
-              libdbusmenu-gtk3
-            ];
-          };
-
-          eww-wayland = nixpkgs.lib.warn
-            "`eww-wayland` is deprecated due to eww building with both X11 and wayland support by default. Use `eww` instead."
-            eww;
-          default = eww;
-        });
-
-      devShells = nixpkgs.lib.genAttrs targetSystems (system:
-        let
-          pkgs = pkgsFor system;
-          rust = mkRustToolchain pkgs;
-        in {
-          default = pkgs.mkShell {
-            inputsFrom = [ self.packages.${system}.eww ];
-            packages = with pkgs; [ deno mdbook ];
-
-            RUST_SRC_PATH = "${rust}/lib/rustlib/src/rust/library";
-          };
-        });
-
-      formatter =
-        nixpkgs.lib.genAttrs targetSystems (system: (pkgsFor system).nixfmt);
-    };
+    formatter = eachSystem (system: (pkgsFor system).nixfmt);
+  };
 }

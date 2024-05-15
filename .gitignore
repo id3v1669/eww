@@ -5,3 +5,4 @@ result-*
 *rc
 !*rc/
 .direnv
+*.sh

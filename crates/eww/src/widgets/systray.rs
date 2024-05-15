@@ -210,7 +210,7 @@ impl Item {
             );
 
             let result = match (evt.button(), item_is_menu) {
-                (gdk::BUTTON_PRIMARY, false) => {
+                (gdk::BUTTON_SECONDARY, false) => {
                     let result = run_async_task(async { item.sni.activate(x, y).await });
                     if result.is_err() && !have_item_is_menu {
                         log::debug!("fallback to context menu due to: {}", result.unwrap_err());
@@ -223,7 +223,7 @@ impl Item {
                     }
                 }
                 (gdk::BUTTON_MIDDLE, _) => run_async_task(async { item.sni.secondary_activate(x, y).await }),
-                (gdk::BUTTON_SECONDARY, _) | (gdk::BUTTON_PRIMARY, true) => {
+                (gdk::BUTTON_PRIMARY, _) | (gdk::BUTTON_SECONDARY, true) => {
                     run_async_task(async { item.popup_menu( evt, x, y).await })
                 }
                 _ => Err(zbus::Error::Failure(format!("unknown button {}", evt.button()))),

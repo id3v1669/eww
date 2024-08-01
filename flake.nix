@@ -10,52 +10,22 @@
   , systems
   }:
   let
-    pkgsFor = system: import nixpkgs { inherit system; }; #overlays
-    
+    inherit (nixpkgs) lib;
+    pkgsFor = system: import nixpkgs { inherit system; };
     eachSystem = nixpkgs.lib.genAttrs (import systems);
   in 
   {
     packages = eachSystem (system: rec 
     {
-      eww = nixpkgs.legacyPackages.${system}.callPackage ./eww.nix { };
-
-      eww-wayland = nixpkgs.lib.warn
-        "`eww-wayland` is deprecated due to eww building with both X11 and wayland support by default. Use `eww` instead."
-        eww;
-        
+      eww = nixpkgs.legacyPackages.${system}.callPackage ./nix/package.nix { };
+      eww-wayland = nixpkgs.lib.warn "`eww-wayland` is deprecated. Wayland is support by default. Use `eww` instead." eww;
       default = eww;
     });
 
+    overlays = import ./nix/overlays.nix {inherit self lib;};
 
-    devShells = eachSystem (system:
-    let
-      pkgs = pkgsFor system;
-    in
-    {
-      default = pkgs.mkShell {
-        name = "eww-devel";
-
-        nativeBuildInputs = with pkgs; [
-          # Compilers
-          cargo
-          rustc
-          scdoc
-
-          # Req
-          gtk3
-          gtk-layer-shell
-          libdbusmenu-gtk3
-          librsvg
-
-          # Tools
-          pkg-config
-          gdb
-          gnumake
-          rust-analyzer
-          rustfmt
-          strace
-        ];
-      };
+    devShells = eachSystem (system: {
+      default = (pkgsFor system).callPackage ./nix/shell.nix { };
     });
 
     formatter = eachSystem (system: (pkgsFor system).nixfmt);

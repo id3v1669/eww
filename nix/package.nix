@@ -10,13 +10,13 @@
 , libdbusmenu-gtk3
 }:
 let
-  curversion = (builtins.fromTOML (builtins.readFile ./crates/eww/Cargo.toml)).package.version;
+  curversion = (builtins.fromTOML (builtins.readFile ./../crates/eww/Cargo.toml)).package.version;
 in
 rustPlatform.buildRustPackage rec {
   version = "${curversion}-dirty";
   pname = "eww";
 
-  src = lib.cleanSource ./.;
+  src = lib.cleanSource ./..;
 
   cargoLock = { lockFile = "${src}/Cargo.lock"; };
 

@@ -106,32 +106,6 @@ pub fn get_cpus() -> String {
     .to_string()
 }
 
-#[cfg(target_os = "macos")]
-pub fn get_battery_capacity() -> Result<String> {
-    let capacity = String::from_utf8(
-        std::process::Command::new("pmset")
-            .args(&["-g", "batt"])
-            .output()
-            .context("\nError while getting the battery value on macos, with `pmset`: ")?
-            .stdout,
-    )?;
-
-    // Example output of that command:
-    // Now drawing from 'Battery Power'
-    //-InternalBattery-0 (id=11403363)	100%; discharging; (no estimate) present: true
-    let regex = regex!(r"[0-9]*%");
-    let mut number = regex.captures(&capacity).unwrap().get(0).unwrap().as_str().to_string();
-
-    // Removes the % at the end
-    number.pop();
-    Ok(format!(
-        "{{ \"BAT0\": {{ \"capacity\": \"{}\", \"status\": \"{}\" }}}}",
-        number,
-        capacity.split(";").collect::<Vec<&str>>()[1]
-    ))
-}
-
-#[cfg(target_os = "linux")]
 pub fn get_battery_capacity() -> Result<String> {
     use std::{collections::HashMap, sync::atomic::AtomicBool};
 
@@ -202,17 +176,10 @@ pub fn get_battery_capacity() -> Result<String> {
     Ok(serde_json::to_string(&(Data { batteries, total_avg: (current / total) * 100_f64 })).unwrap())
 }
 
-#[cfg(not(target_os = "macos"))]
-#[cfg(not(target_os = "linux"))]
-pub fn get_battery_capacity() -> Result<String> {
-    Err(anyhow::anyhow!("Eww doesn't support your OS for getting the battery capacity"))
-}
-
 pub fn net() -> String {
     let (ref mut last_refresh, ref mut networks) = &mut *NETWORKS.lock().unwrap();
 
     networks.refresh_list();
-    networks.refresh();
     let elapsed = last_refresh.next_refresh();
 
     networks

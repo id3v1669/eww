@@ -34,7 +34,6 @@ All notable changes to eww will be listed here, starting at changes since versio
 - Add `:icon` and `:icon-size` to the image widget (By: Adrian Perez de Castro)
 - Add `get_env` function (By: RegenJacob)
 - Add `:namespace` window option
-- Default to building with x11 and wayland support simultaneously
 - Add `truncate-left` property on `label` widgets (By: kawaki-san)
 - Add `gravity` property on `label` widgets (By: Elekrisk)
 - Add support for safe access (`?.`) in simplexpr (By: oldwomanjosiah)
@@ -66,7 +65,6 @@ All notable changes to eww will be listed here, starting at changes since versio
 - Change `calendar`-widget to index months starting at 1 rather than indexed from 0
 
 ### Features
-- Add support for output names in X11 to select `:monitor`.
 - Add support for `:active`-pseudoselector on eventbox (By: viandoxdev)
 - Add support for `:password` on input (By: viandoxdev)
 

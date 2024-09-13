@@ -1,5 +1,4 @@
 use crate::{
-    config,
     daemon_response::DaemonResponseSender,
     display_backend::DisplayBackend,
     error_handling_ctx,
@@ -17,12 +16,14 @@ use codespan_reporting::files::Files;
 use eww_shared_util::{Span, VarName};
 use gdk::Monitor;
 use glib::ObjectExt;
+use gtk::{gdk, glib};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use simplexpr::{dynval::DynVal, SimplExpr};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
+    marker::PhantomData,
     rc::Rc,
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -87,10 +88,6 @@ pub enum DaemonCommand {
 /// An opened window.
 #[derive(Debug)]
 pub struct EwwWindow {
-    /// Every window has an id, uniquely identifying it.
-    /// If no specific ID was specified whilst starting the window,
-    /// this will be the same as the window name.
-    pub instance_id: String,
     pub name: String,
     pub scope_index: ScopeIndex,
     pub gtk_window: Window,
@@ -111,11 +108,13 @@ impl EwwWindow {
     }
 }
 
-pub struct App<B> {
-    pub display_backend: B,
+pub struct App<B: DisplayBackend> {
     pub scope_graph: Rc<RefCell<ScopeGraph>>,
     pub eww_config: config::EwwConfig,
-    /// Map of all currently open windows by their IDs
+    /// Map of all currently open windows to their unique IDs
+    /// If no specific ID was specified whilst starting the window,
+    /// it will be the same as the window name.
+    /// Therefore, only one window of a given name can exist when not using IDs.
     pub open_windows: HashMap<String, EwwWindow>,
     pub instance_id_to_args: HashMap<String, WindowArguments>,
     /// Window names that are supposed to be open, but failed.
@@ -131,9 +130,10 @@ pub struct App<B> {
     pub window_close_timer_abort_senders: HashMap<String, futures::channel::oneshot::Sender<()>>,
 
     pub paths: EwwPaths,
+    pub phantom: PhantomData<B>,
 }
 
-impl<B> std::fmt::Debug for App<B> {
+impl<B: DisplayBackend> std::fmt::Debug for App<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("App")
             .field("scope_graph", &*self.scope_graph.borrow())
@@ -555,45 +555,14 @@ fn initialize_window<B: DisplayBackend>(
 
     window.realize();
 
-    #[cfg(feature = "x11")]
-    if B::IS_X11 {
-        if let Some(geometry) = window_init.geometry {
-            let _ = apply_window_position(geometry, monitor_geometry, &window);
-            if window_init.backend_options.x11.window_type != yuck::config::backend_window_options::X11WindowType::Normal {
-                window.connect_configure_event(move |window, _| {
-                    let _ = apply_window_position(geometry, monitor_geometry, window);
-                    false
-                });
-            }
-        }
-        display_backend::set_xprops(&window, monitor, window_init)?;
-    }
-
     window.show_all();
 
     Ok(EwwWindow {
-        instance_id: window_init.id.clone(),
         name: window_init.name.clone(),
         gtk_window: window,
         scope_index: window_scope,
         destroy_event_handler_id: None,
     })
-}
-
-/// Apply the provided window-positioning rules to the window.
-#[cfg(feature = "x11")]
-fn apply_window_position(mut window_geometry: WindowGeometry, monitor_geometry: gdk::Rectangle, window: &Window) -> Result<()> {
-    let gdk_window = window.window().context("Failed to get gdk window from gtk window")?;
-    window_geometry.size = Coords::from_pixels(window.size());
-    let actual_window_rect = get_window_rectangle(window_geometry, monitor_geometry);
-
-    let gdk_origin = gdk_window.origin();
-
-    if actual_window_rect.x() != gdk_origin.1 || actual_window_rect.y() != gdk_origin.2 {
-        gdk_window.move_(actual_window_rect.x(), actual_window_rect.y());
-    }
-
-    Ok(())
 }
 
 fn on_screen_changed(window: &Window, _old_screen: Option<&gdk::Screen>) {
@@ -627,29 +596,9 @@ fn get_gdk_monitor(identifier: Option<MonitorIdentifier>) -> Result<Monitor> {
 }
 
 /// Returns the [Monitor][gdk::Monitor] structure corresponding to the identifer.
-/// Outside of x11, only [MonitorIdentifier::Numeric] is supported
 pub fn get_monitor_from_display(display: &gdk::Display, identifier: &MonitorIdentifier) -> Option<gdk::Monitor> {
     match identifier {
-        MonitorIdentifier::List(list) => {
-            for ident in list {
-                if let Some(monitor) = get_monitor_from_display(display, ident) {
-                    return Some(monitor);
-                }
-            }
-            None
-        }
-        MonitorIdentifier::Primary => display.primary_monitor(),
-        MonitorIdentifier::Numeric(num) => display.monitor(*num),
-        MonitorIdentifier::Name(name) => {
-            for m in 0..display.n_monitors() {
-                if let Some(model) = display.monitor(m).and_then(|x| x.model()) {
-                    if model == *name {
-                        return display.monitor(m);
-                    }
-                }
-            }
-            None
-        }
+        MonitorIdentifier::Numeric(num) => display.monitor(*num)
     }
 }
 

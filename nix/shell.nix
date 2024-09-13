@@ -21,5 +21,8 @@ pkgs.mkShell {
     rust-analyzer
     rustfmt
     strace
+    zbus-xmlgen
+    deno
+    mdbook
   ];
 }

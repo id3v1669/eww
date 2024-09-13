@@ -34,7 +34,7 @@ define_builtin_vars! {
     // @prop { <name>: temperature }
     "EWW_TEMPS" [2] => || Ok(DynVal::from(get_temperatures())),
 
-    // @desc EWW_RAM - Information on ram and swap usage in kB.
+    // @desc EWW_RAM - Information on ram and swap usage in bytes.
     // @prop { total_mem, free_mem, total_swap, free_swap, available_mem, used_mem, used_mem_perc }
     "EWW_RAM" [2] => || Ok(DynVal::from(get_ram())),
 
@@ -42,7 +42,7 @@ define_builtin_vars! {
     // @prop { <mount_point>: { name, total, free, used, used_perc } }
     "EWW_DISK" [2] => || Ok(DynVal::from(get_disks())),
 
-    // @desc EWW_BATTERY - Battery capacity in procent of the main battery
+    // @desc EWW_BATTERY - Battery capacity in percent of the main battery
     // @prop { <name>: { capacity, status } }
     "EWW_BATTERY" [2] => || Ok(DynVal::from(
         match get_battery_capacity() {
@@ -54,7 +54,7 @@ define_builtin_vars! {
         }
     )),
 
-    // @desc EWW_CPU - Information on the CPU cores: frequency and usage (No MacOS support)
+    // @desc EWW_CPU - Information on the CPU cores: frequency and usage
     // @prop { cores: [{ core, freq, usage }], avg }
     "EWW_CPU" [2] => || Ok(DynVal::from(get_cpus())) ,
 

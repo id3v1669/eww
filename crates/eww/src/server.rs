@@ -1,5 +1,5 @@
 use crate::{
-    app::{self, DaemonCommand},
+    app::{self, App, DaemonCommand},
     config, daemon_response,
     display_backend::DisplayBackend,
     error_handling_ctx, ipc_server, script_var_handler,
@@ -12,6 +12,7 @@ use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
     io::Write,
+    marker::PhantomData,
     os::unix::io::AsRawFd,
     path::Path,
     rc::Rc,
@@ -22,7 +23,6 @@ use tokio::sync::mpsc::*;
 pub fn initialize_server<B: DisplayBackend>(
     paths: EwwPaths,
     action: Option<DaemonCommand>,
-    display_backend: B,
     should_daemonize: bool,
 ) -> Result<ForkResult> {
     let (ui_send, mut ui_recv) = tokio::sync::mpsc::unbounded_channel();
@@ -57,7 +57,7 @@ pub fn initialize_server<B: DisplayBackend>(
 ┏━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃Initializing eww daemon┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━┛
-    "#
+"#
     );
 
     simple_signal::set_handler(&[simple_signal::Signal::Int, simple_signal::Signal::Term], move |_| {
@@ -68,6 +68,8 @@ pub fn initialize_server<B: DisplayBackend>(
         }
     });
 
+    std::env::set_var("GDK_BACKEND", "wayland");
+
     gtk::init()?;
 
     log::debug!("Initializing script var handler");
@@ -75,8 +77,7 @@ pub fn initialize_server<B: DisplayBackend>(
 
     let (scope_graph_evt_send, mut scope_graph_evt_recv) = tokio::sync::mpsc::unbounded_channel();
 
-    let mut app = app::App {
-        display_backend,
+    let mut app: App<B> = app::App {
         scope_graph: Rc::new(RefCell::new(ScopeGraph::from_global_vars(
             eww_config.generate_initial_state()?,
             scope_graph_evt_send,
@@ -90,9 +91,10 @@ pub fn initialize_server<B: DisplayBackend>(
         app_evt_send: ui_send.clone(),
         window_close_timer_abort_senders: HashMap::new(),
         paths,
+        phantom: PhantomData,
     };
 
-    if let Some(screen) = gdk::Screen::default() {
+    if let Some(screen) = gtk::gdk::Screen::default() {
         gtk::StyleContext::add_provider_for_screen(&screen, &app.css_provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 
@@ -105,7 +107,7 @@ pub fn initialize_server<B: DisplayBackend>(
     // initialize all the handlers and tasks running asyncronously
     let tokio_handle = init_async_part(app.paths.clone(), ui_send);
 
-    glib::MainContext::default().spawn_local(async move {
+    gtk::glib::MainContext::default().spawn_local(async move {
         // if an action was given to the daemon initially, execute it first.
         if let Some(action) = action {
             app.handle_command(action);

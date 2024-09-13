@@ -3,6 +3,10 @@ use anyhow::{Context, Result};
 use once_cell::sync::Lazy;
 use std::{fs::read_to_string, sync::Mutex};
 use sysinfo::System;
+use serde_json::{json, Value, Map};
+
+#[cfg(feature = "nvidia")]
+use nvml_wrapper::Nvml;
 
 struct RefreshTime(std::time::Instant);
 impl RefreshTime {
@@ -74,19 +78,64 @@ pub fn get_temperatures() -> String {
     let mut components = COMPONENTS.lock().unwrap();
     components.refresh_list();
     components.refresh();
-    components
+
+    // Allow unused mut because we only need it if the nvidia feature is enabled
+    #[allow(unused_mut)]
+    let mut temps: Map<String, Value> = components
         .iter()
-        .map(|c| {
-            (
-                c.label().to_uppercase().replace(' ', "_"),
-                // It is common for temperatures to report a non-numeric value.
-                // Tolerate it by serializing it as the string "null"
-                c.temperature().to_string().replace("NaN", "\"null\""),
-            )
-        })
-        .collect::<serde_json::Value>()
-        .to_string()
+        .map(|c| {(
+            c.label().to_uppercase().replace(' ', "_"),
+            if c.temperature().is_nan() {
+                Value::Null
+            } else {
+                Value::from(format!("{:.1}", c.temperature()))
+            },
+        )})
+        .collect();
+
+    #[cfg(feature = "nvidia")]
+    if let Some(gpu_temps) = get_all_nvidia_gpu_temperatures() {
+        for (index, gpu_temp) in gpu_temps.into_iter().enumerate() {
+            temps.insert(
+                format!("NVIDIA_GPU_{}", index),
+                if gpu_temp.is_nan() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::from(gpu_temp)
+                },
+            );
+        }
+    }
+
+    serde_json::to_string(&json!(temps)).unwrap()
 }
+
+#[cfg(feature = "nvidia")]
+fn get_all_nvidia_gpu_temperatures() -> Option<Vec<f64>> {
+    let nvml = match Nvml::init() {
+        Ok(nvml) => nvml,
+        Err(e) => {
+            log::error!("Failed to initialize Nvidia Management Library: {:?}", e);
+            return None;
+        }
+    };
+
+    let device_count = nvml.device_count().ok()?;
+
+    let mut gpu_temps = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            if let Ok(temp) = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu) {
+                gpu_temps.push(temp as f64);
+            } else {
+                gpu_temps.push(f64::NAN);
+            }
+        }
+    }
+
+    Some(gpu_temps)
+}
+
 
 pub fn get_cpus() -> String {
     let mut system = SYSTEM.lock().unwrap();

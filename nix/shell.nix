@@ -16,6 +16,8 @@ pkgs.mkShell {
 
     # Tools
     pkg-config
+    cargo-audit
+    cargo-deny
     gdb
     gnumake
     rust-analyzer

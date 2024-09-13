@@ -1,4 +1,5 @@
 { lib
+, config
 , rustPlatform
 , fetchFromGitHub
 , pkg-config
@@ -8,6 +9,8 @@
 , gtk-layer-shell
 , stdenv
 , libdbusmenu-gtk3
+, cudaSupport ? config.cudaSupport
+, autoAddDriverRunpath
 }:
 let
   curversion = (builtins.fromTOML (builtins.readFile ./../crates/eww/Cargo.toml)).package.version;
@@ -23,6 +26,8 @@ rustPlatform.buildRustPackage rec {
   nativeBuildInputs = [
     pkg-config
     wrapGAppsHook
+  ] ++ lib.optionals cudaSupport [
+    autoAddDriverRunpath
   ];
 
   buildInputs = [
@@ -30,6 +35,10 @@ rustPlatform.buildRustPackage rec {
     gtk-layer-shell
     libdbusmenu-gtk3
     librsvg
+  ];
+
+  buildFeatures = [] ++ lib.optionals cudaSupport [
+    "nvidia"
   ];
 
   cargoBuildFlags = [

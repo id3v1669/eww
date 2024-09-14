@@ -18,7 +18,6 @@
     packages = eachSystem (system: rec 
     {
       eww = nixpkgs.legacyPackages.${system}.callPackage ./nix/package.nix { };
-      eww-wayland = nixpkgs.lib.warn "`eww-wayland` is deprecated. Wayland is support by default. Use `eww` instead." eww;
       default = eww;
     });
 
@@ -27,7 +26,9 @@
     devShells = eachSystem (system: {
       default = (pkgsFor system).callPackage ./nix/shell.nix { };
     });
-
+    
+    homeManagerModules.default = import ./nix/module.nix self;
+    
     formatter = eachSystem (system: (pkgsFor system).nixfmt);
   };
 }

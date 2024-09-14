@@ -14,6 +14,7 @@ let
   inherit (lib.options) mkOption mkEnableOption;
 in
 {
+  disabledModules = [ "programs/eww.nix" ];
   options.programs.eww = {
     enable = mkEnableOption "Wacky Widgets";
 
@@ -24,7 +25,8 @@ in
     };
     
     configDir = mkOption {
-      type = types.path;
+      type = types.nullOr types.path;
+      default = null;
       example = literalExpression "./eww-config-dir";
       description = ''
         The directory that gets symlinked to
@@ -47,7 +49,10 @@ in
 
   config = mkIf cfg.enable {
     home.packages = [ cfg.package ];
-    xdg.configFile."eww".source = cfg.configDir;
+
+    xdg.configFile = mkIf (cfg.configDir != null) {
+      "eww".source = cfg.configDir;
+    };
 
     programs.bash.initExtra = mkIf cfg.enableBashIntegration ''
       if [[ $TERM != "dumb" ]]; then

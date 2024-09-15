@@ -58,6 +58,9 @@ define_builtin_vars! {
     // @prop { cores: [{ core, freq, usage }], avg }
     "EWW_CPU" [2] => || Ok(DynVal::from(get_cpus())) ,
 
+    // @desc EWW_GPU - Information on the GPU (chip and vram) usage and frequency
+    "EWW_GPU" [2] => || Ok(DynVal::from(get_gpus())) ,
+
     // @desc EWW_NET - Bytes up/down on all interfaces
     // @prop { <name>: { up, down } }
     "EWW_NET" [2] => || Ok(DynVal::from(net())) ,

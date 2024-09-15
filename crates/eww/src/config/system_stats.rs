@@ -6,7 +6,7 @@ use sysinfo::System;
 use serde_json::{json, Value, Map};
 
 #[cfg(feature = "nvidia")]
-use nvml_wrapper::Nvml;
+use nvml_wrapper::{Nvml, enum_wrappers::device::Clock};
 
 struct RefreshTime(std::time::Instant);
 impl RefreshTime {
@@ -115,12 +115,25 @@ fn get_all_nvidia_gpu_temperatures() -> Option<Vec<f64>> {
     let nvml = match Nvml::init() {
         Ok(nvml) => nvml,
         Err(e) => {
-            log::error!("Failed to initialize Nvidia Management Library: {:?}", e);
+            log::error!("Are you shure you have nvidia gpu and proprietary drivers installed? \
+              Failed to initialize NVML: {:?}", e);
             return None;
         }
     };
 
-    let device_count = nvml.device_count().ok()?;
+    let device_count = match nvml.device_count() {
+        Ok(count) => {
+            if count == 0 {
+                log::warn!("NVML was initialized, but no devices were found.");
+                return None;
+            }
+            count
+        },
+        Err(e) => {
+            log::error!("Failed to get NVML device count: {:?}", e);
+            return None;
+        }
+    };
 
     let mut gpu_temps = Vec::new();
     for i in 0..device_count {
@@ -153,6 +166,114 @@ pub fn get_cpus() -> String {
         "avg": cpus.iter().map(|a| a.cpu_usage()).avg()
     })
     .to_string()
+}
+
+pub fn get_gpus() -> String {
+    #[allow(unused_mut)]
+    let mut gpus_data: Map<String, Value> = Map::new();
+    #[cfg(feature = "nvidia")]
+    {
+        let nvml = match Nvml::init() {
+            Ok(nvml) => nvml,
+            Err(e) => {
+                log::error!("Are you shure you have nvidia gpu and proprietary drivers installed? \
+                  Failed to initialize NVML: {:?}", e);
+                return "".to_string();
+            }
+        };
+        let nvidia_device_count = match nvml.device_count() {
+            Ok(count) => {
+                if count == 0 {
+                    log::warn!("NVML was initialized, but no devices were found.");
+                    return "".to_string();
+                }
+                count
+            },
+            Err(e) => {
+                log::error!("Failed to get NVML device count: {:?}", e);
+                return "".to_string();
+            }
+        };
+
+        let mut nvidia_gpus_load: Map<String, Value> = Map::new();
+        if let Some(gpu_loads) = get_nvidia_load(&nvml, nvidia_device_count) {
+            for (index, gpu_load) in gpu_loads.into_iter().enumerate() {
+                nvidia_gpus_load.insert(
+                    format!("NVIDIA_GPU_LOAD_{}", index),
+                    serde_json::Value::from(gpu_load),
+                );
+            }
+        }
+
+        let mut nvidia_gpus_vram_current: Map<String, Value> = Map::new();
+        if let Some(gpu_vram_current) = get_nvidia_vram_current(&nvml, nvidia_device_count) {
+            for (index, vram_current) in gpu_vram_current.into_iter().enumerate() {
+                nvidia_gpus_vram_current.insert(
+                    format!("NVIDIA_GPU_VRAM_CURRENT_{}", index),
+                    serde_json::Value::from(vram_current),
+                );
+            }
+        }
+
+        let mut nvidia_gpus_vram_max: Map<String, Value> = Map::new();
+        if let Some(gpu_vram_max) = get_nvidia_vram_max(&nvml, nvidia_device_count) {
+            for (index, vram_max) in gpu_vram_max.into_iter().enumerate() {
+                nvidia_gpus_vram_max.insert(
+                    format!("NVIDIA_GPU_VRAM_MAX_{}", index),
+                    serde_json::Value::from(vram_max),
+                );
+            }
+        }
+
+        let mut nvidia_gpus_freq_graphics_current: Map<String, Value> = Map::new();
+        if let Some(gpu_freq) = get_nvidia_freq_graphics_current(&nvml, nvidia_device_count) {
+            for (index, freq) in gpu_freq.into_iter().enumerate() {
+                nvidia_gpus_freq_graphics_current.insert(
+                    format!("NVIDIA_GPU_FREQ_GRAPHICS_CURRENT_{}", index),
+                    serde_json::Value::from(freq),
+                );
+            }
+        }
+
+        let mut nvidia_gpus_freq_graphics_max: Map<String, Value> = Map::new();
+        if let Some(gpu_freq) = get_nvidia_freq_graphics_max(&nvml, nvidia_device_count) {
+            for (index, freq) in gpu_freq.into_iter().enumerate() {
+                nvidia_gpus_freq_graphics_max.insert(
+                    format!("NVIDIA_GPU_FREQ_GRAPHICS_MAX_{}", index),
+                    serde_json::Value::from(freq),
+                );
+            }
+        }
+
+        let mut nvidia_gpus_freq_vram_current: Map<String, Value> = Map::new();
+        if let Some(gpu_freq) = get_nvidia_freq_vram_current(&nvml, nvidia_device_count) {
+            for (index, freq) in gpu_freq.into_iter().enumerate() {
+                nvidia_gpus_freq_vram_current.insert(
+                    format!("NVIDIA_GPU_FREQ_MEMORY_CURRENT_{}", index),
+                    serde_json::Value::from(freq),
+                );
+            }
+        }
+
+        let mut nvidia_gpus_freq_vram_max: Map<String, Value> = Map::new();
+        if let Some(gpu_freq) = get_nvidia_freq_vram_max(&nvml, nvidia_device_count) {
+            for (index, freq) in gpu_freq.into_iter().enumerate() {
+                nvidia_gpus_freq_vram_max.insert(
+                    format!("NVIDIA_GPU_FREQ_MEMORY_MAX_{}", index),
+                    serde_json::Value::from(freq),
+                );
+            }
+        }
+        gpus_data.extend(nvidia_gpus_load);
+        gpus_data.extend(nvidia_gpus_vram_current);
+        gpus_data.extend(nvidia_gpus_vram_max);
+        gpus_data.extend(nvidia_gpus_freq_graphics_current);
+        gpus_data.extend(nvidia_gpus_freq_graphics_max);
+        gpus_data.extend(nvidia_gpus_freq_vram_current);
+        gpus_data.extend(nvidia_gpus_freq_vram_max);
+    }
+
+    serde_json::to_string(&json!(gpus_data)).unwrap()
 }
 
 pub fn get_battery_capacity() -> Result<String> {
@@ -244,4 +365,137 @@ pub fn net() -> String {
 
 pub fn get_time() -> String {
     chrono::offset::Utc::now().timestamp().to_string()
+}
+
+#[cfg(feature = "nvidia")]
+pub fn get_nvidia_load(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_loads = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.utilization_rates() {
+                Ok(util) => {
+                    gpu_loads.push(util.gpu);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU utilization: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_loads)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_vram_current(nvml: &Nvml, device_count: u32) -> Option<Vec<u64>> {
+    let mut gpu_vram_current = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.memory_info() {
+                Ok(mem) => {
+                    gpu_vram_current.push(mem.used);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU current memory info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_vram_current)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_vram_max(nvml: &Nvml, device_count: u32) -> Option<Vec<u64>> {
+    let mut gpu_vram_max = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.memory_info() {
+                Ok(mem) => {
+                    gpu_vram_max.push(mem.total);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU max memory info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_vram_max)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_freq_graphics_current(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_freq = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.clock_info(Clock::Graphics) {
+                Ok(clock) => {
+                    gpu_freq.push(clock);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU current clock info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_freq)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_freq_graphics_max(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_freq = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.max_clock_info(Clock::Graphics) {
+                Ok(clock) => {
+                    gpu_freq.push(clock);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU max clock info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_freq)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_freq_vram_current(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_freq = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.clock_info(Clock::Memory) {
+                Ok(clock) => {
+                    gpu_freq.push(clock);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia VRAM current clock info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_freq)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_freq_vram_max(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_freq = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.max_clock_info(Clock::Memory) {
+                Ok(clock) => {
+                    gpu_freq.push(clock);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia VRAM max clock info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_freq)
 }

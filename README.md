@@ -1,20 +1,28 @@
-[![dependency status](https://deps.rs/repo/github/elkowar/eww/status.svg)](https://deps.rs/repo/github/elkowar/eww)
+# Fork specials
+
+1) Better nix packaging
+2) Home manager module with fix for configDir variable
+3) swapped left and right click for objects in systray
+4) only wayland support(x11 and macos deprecated)
+5) optional support for nvidia gpus temprature
+6) EWW_GPU variable(for now nvidia only)
+
+# Fork TODO
+
+1) improve automated testing
+2) add support for intel and amd gpus in EWW_GPU
+3) migrate from yuck to json?
 
 # Eww
 
 <img src="./.github/EwwLogo.svg" height="100" align="left"/>
 
-Elkowars Wacky Widgets is a standalone widget system made in Rust that allows you to implement
+EWW is a standalone widget system made in Rust that allows you to implement
 your own, custom widgets in any window manager.
 
 Documentation **and instructions on how to install** can be found [here](https://elkowar.github.io/eww).
 
 Dharmx also wrote a nice, beginner friendly introductory guide for eww [here](https://dharmx.is-a.dev/eww-powermenu/).
-
-## Eww needs your opinion!
-I've hit a bit of a design roadblock for one of the bigger features that are in the works right now.
-
-**Please read through https://github.com/elkowar/eww/discussions/453 and share your thoughts, ideas and opinions!**
 
 ## Examples
 
@@ -60,7 +68,7 @@ I've hit a bit of a design roadblock for one of the bigger features that are in 
 </div>
 
 
-## Contribewwting
+## Contributing
 
 If you want to contribute anything, like adding new widgets, features, or subcommands (including sample configs), you should definitely do so.
 

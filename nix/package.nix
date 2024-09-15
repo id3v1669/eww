@@ -50,4 +50,5 @@ rustPlatform.buildRustPackage rec {
 
   RUSTC_BOOTSTRAP = 1;
 
+  meta.mainProgram = "eww";
 }

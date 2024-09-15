@@ -1,17 +1,9 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use simplexpr::{
-    dynval::{DynVal},
-    eval::EvalError,
-    SimplExpr,
-};
+use simplexpr::{dynval::DynVal, eval::EvalError, SimplExpr};
 
-use crate::{
-    enum_parse,
-    error::DiagResult,
-    value::coords,
-};
+use crate::{enum_parse, error::DiagResult, value::coords};
 use eww_shared_util::VarName;
 
 use super::{attributes::Attributes, window_definition::EnumParseError};

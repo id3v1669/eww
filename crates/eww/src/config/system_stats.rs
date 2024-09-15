@@ -1,12 +1,12 @@
 use crate::util::IterAverage;
 use anyhow::{Context, Result};
 use once_cell::sync::Lazy;
+use serde_json::{json, Map, Value};
 use std::{fs::read_to_string, sync::Mutex};
 use sysinfo::System;
-use serde_json::{json, Value, Map};
 
 #[cfg(feature = "nvidia")]
-use nvml_wrapper::{Nvml, enum_wrappers::device::Clock};
+use nvml_wrapper::{enum_wrappers::device::Clock, Nvml};
 
 struct RefreshTime(std::time::Instant);
 impl RefreshTime {
@@ -86,14 +86,12 @@ pub fn get_temperatures() -> String {
     #[allow(unused_mut)]
     let mut temps: Map<String, Value> = components
         .iter()
-        .map(|c| {(
-            c.label().to_uppercase().replace(' ', "_"),
-            if c.temperature().is_nan() {
-                Value::Null
-            } else {
-                Value::from(format!("{:.1}", c.temperature()))
-            },
-        )})
+        .map(|c| {
+            (
+                c.label().to_uppercase().replace(' ', "_"),
+                if c.temperature().is_nan() { Value::Null } else { Value::from(format!("{:.1}", c.temperature())) },
+            )
+        })
         .collect();
 
     #[cfg(feature = "nvidia")]
@@ -101,11 +99,7 @@ pub fn get_temperatures() -> String {
         for (index, gpu_temp) in gpu_temps.into_iter().enumerate() {
             temps.insert(
                 format!("NVIDIA_GPU_{}", index),
-                if gpu_temp.is_nan() {
-                    serde_json::Value::Null
-                } else {
-                    serde_json::Value::from(gpu_temp)
-                },
+                if gpu_temp.is_nan() { serde_json::Value::Null } else { serde_json::Value::from(gpu_temp) },
             );
         }
     }
@@ -118,8 +112,11 @@ fn get_all_nvidia_gpu_temperatures() -> Option<Vec<f64>> {
     let nvml = match Nvml::init() {
         Ok(nvml) => nvml,
         Err(e) => {
-            log::error!("Are you shure you have nvidia gpu and proprietary drivers installed? \
-              Failed to initialize NVML: {:?}", e);
+            log::error!(
+                "Are you shure you have nvidia gpu and proprietary drivers installed? \
+              Failed to initialize NVML: {:?}",
+                e
+            );
             return None;
         }
     };
@@ -131,7 +128,7 @@ fn get_all_nvidia_gpu_temperatures() -> Option<Vec<f64>> {
                 return None;
             }
             count
-        },
+        }
         Err(e) => {
             log::error!("Failed to get NVML device count: {:?}", e);
             return None;
@@ -151,7 +148,6 @@ fn get_all_nvidia_gpu_temperatures() -> Option<Vec<f64>> {
 
     Some(gpu_temps)
 }
-
 
 pub fn get_cpus() -> String {
     let mut system = SYSTEM.lock().unwrap();
@@ -184,7 +180,7 @@ pub fn get_gpus() -> String {
                     return "".to_string();
                 }
                 count
-            },
+            }
             Err(e) => {
                 log::error!("Failed to get NVML device count: {:?}", e);
                 return "".to_string();
@@ -193,64 +189,43 @@ pub fn get_gpus() -> String {
 
         if let Some(gpu_loads) = get_nvidia_load(&nvml, nvidia_device_count) {
             for (index, gpu_load) in gpu_loads.into_iter().enumerate() {
-                gpus_data.insert(
-                    format!("NVIDIA_GPU_LOAD_{}", index),
-                    serde_json::Value::from(gpu_load),
-                );
+                gpus_data.insert(format!("NVIDIA_GPU_LOAD_{}", index), serde_json::Value::from(gpu_load));
             }
         }
 
         if let Some(gpu_vram_current) = get_nvidia_vram_current(&nvml, nvidia_device_count) {
             for (index, vram_current) in gpu_vram_current.into_iter().enumerate() {
-                gpus_data.insert(
-                    format!("NVIDIA_GPU_VRAM_CURRENT_{}", index),
-                    serde_json::Value::from(vram_current),
-                );
+                gpus_data.insert(format!("NVIDIA_GPU_VRAM_CURRENT_{}", index), serde_json::Value::from(vram_current));
             }
         }
 
         if let Some(gpu_vram_max) = get_nvidia_vram_max(&nvml, nvidia_device_count) {
             for (index, vram_max) in gpu_vram_max.into_iter().enumerate() {
-                gpus_data.insert(
-                    format!("NVIDIA_GPU_VRAM_MAX_{}", index),
-                    serde_json::Value::from(vram_max),
-                );
+                gpus_data.insert(format!("NVIDIA_GPU_VRAM_MAX_{}", index), serde_json::Value::from(vram_max));
             }
         }
 
         if let Some(gpu_freq) = get_nvidia_freq_graphics_current(&nvml, nvidia_device_count) {
             for (index, freq) in gpu_freq.into_iter().enumerate() {
-                gpus_data.insert(
-                    format!("NVIDIA_GPU_FREQ_GRAPHICS_CURRENT_{}", index),
-                    serde_json::Value::from(freq),
-                );
+                gpus_data.insert(format!("NVIDIA_GPU_FREQ_GRAPHICS_CURRENT_{}", index), serde_json::Value::from(freq));
             }
         }
 
         if let Some(gpu_freq) = get_nvidia_freq_graphics_max(&nvml, nvidia_device_count) {
             for (index, freq) in gpu_freq.into_iter().enumerate() {
-                gpus_data.insert(
-                    format!("NVIDIA_GPU_FREQ_GRAPHICS_MAX_{}", index),
-                    serde_json::Value::from(freq),
-                );
+                gpus_data.insert(format!("NVIDIA_GPU_FREQ_GRAPHICS_MAX_{}", index), serde_json::Value::from(freq));
             }
         }
 
         if let Some(gpu_freq) = get_nvidia_freq_vram_current(&nvml, nvidia_device_count) {
             for (index, freq) in gpu_freq.into_iter().enumerate() {
-                gpus_data.insert(
-                    format!("NVIDIA_GPU_FREQ_MEMORY_CURRENT_{}", index),
-                    serde_json::Value::from(freq),
-                );
+                gpus_data.insert(format!("NVIDIA_GPU_FREQ_MEMORY_CURRENT_{}", index), serde_json::Value::from(freq));
             }
         }
 
         if let Some(gpu_freq) = get_nvidia_freq_vram_max(&nvml, nvidia_device_count) {
             for (index, freq) in gpu_freq.into_iter().enumerate() {
-                gpus_data.insert(
-                    format!("NVIDIA_GPU_FREQ_MEMORY_MAX_{}", index),
-                    serde_json::Value::from(freq),
-                );
+                gpus_data.insert(format!("NVIDIA_GPU_FREQ_MEMORY_MAX_{}", index), serde_json::Value::from(freq));
             }
         }
     }

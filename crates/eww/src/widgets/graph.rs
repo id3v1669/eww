@@ -91,7 +91,7 @@ impl GraphPriv {
      * Receives normalized (0-1) coordinates `x` and `y` and convert them to the
      * point on the widget.
      */
-     fn value_to_point(&self, width: f64, height: f64, x: f64, y: f64) -> (f64, f64) {
+    fn value_to_point(&self, width: f64, height: f64, x: f64, y: f64) -> (f64, f64) {
         let x = if *self.flip_x.borrow() { 1.0 - x } else { x };
         let y = if *self.flip_y.borrow() { 1.0 - y } else { y };
         let (x, y) = if *self.vertical.borrow() { (y, x) } else { (x, y) };

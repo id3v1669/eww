@@ -18,6 +18,8 @@ pkgs.mkShell {
     pkg-config
     cargo-audit
     cargo-deny
+    cargo-tarpaulin
+    clippy
     gdb
     gnumake
     rust-analyzer

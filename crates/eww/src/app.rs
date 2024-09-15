@@ -15,7 +15,7 @@ use anyhow::anyhow;
 use codespan_reporting::files::Files;
 use eww_shared_util::{Span, VarName};
 use gdk::Monitor;
-use glib::ObjectExt;
+use glib::prelude::ObjectExt;
 use gtk::{gdk, glib};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -598,7 +598,7 @@ fn get_gdk_monitor(identifier: Option<MonitorIdentifier>) -> Result<Monitor> {
 /// Returns the [Monitor][gdk::Monitor] structure corresponding to the identifer.
 pub fn get_monitor_from_display(display: &gdk::Display, identifier: &MonitorIdentifier) -> Option<gdk::Monitor> {
     match identifier {
-        MonitorIdentifier::Numeric(num) => display.monitor(*num)
+        MonitorIdentifier::Numeric(num) => display.monitor(*num),
     }
 }
 

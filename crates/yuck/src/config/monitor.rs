@@ -1,8 +1,4 @@
-use std::{
-    convert::Infallible,
-    fmt,
-    str::self,
-};
+use std::{convert::Infallible, fmt, str};
 
 use serde::{Deserialize, Serialize};
 use simplexpr::dynval::{ConversionError, DynVal};
@@ -10,7 +6,7 @@ use simplexpr::dynval::{ConversionError, DynVal};
 /// The type of the identifier used to select a monitor
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MonitorIdentifier {
-    Numeric(i32)
+    Numeric(i32),
 }
 
 impl MonitorIdentifier {
@@ -29,7 +25,7 @@ impl MonitorIdentifier {
 impl From<&MonitorIdentifier> for DynVal {
     fn from(val: &MonitorIdentifier) -> Self {
         match val {
-            MonitorIdentifier::Numeric(n) => DynVal::from(*n)
+            MonitorIdentifier::Numeric(n) => DynVal::from(*n),
         }
     }
 }
@@ -48,7 +44,7 @@ impl str::FromStr for MonitorIdentifier {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse::<i32>() {
             Ok(n) => Ok(Self::Numeric(n)),
-            Err(_) => Ok(Self::Numeric(0))
+            Err(_) => Ok(Self::Numeric(0)),
         }
     }
 }

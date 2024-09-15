@@ -27,7 +27,6 @@ mod platform_wayland {
     pub struct WaylandBackend;
 
     impl DisplayBackend for WaylandBackend {
-
         fn initialize_window(window_init: &WindowInitiator, monitor: gdk::Rectangle, x: i32, y: i32) -> Option<Window> {
             let window = Window::new(gtk::WindowType::Toplevel, x, y);
             // Initialising a layer shell surface

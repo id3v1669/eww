@@ -59,6 +59,7 @@ define_builtin_vars! {
     "EWW_CPU" [2] => || Ok(DynVal::from(get_cpus())) ,
 
     // @desc EWW_GPU - Information on the GPU (chip and vram) usage and frequency
+    // @prop { gpu_load, vram_current, vrma_max, freq_graphics_current, freq_graphics_max, freq_vram_current, freq_vram_max }
     "EWW_GPU" [2] => || Ok(DynVal::from(get_gpus())) ,
 
     // @desc EWW_NET - Bytes up/down on all interfaces

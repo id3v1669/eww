@@ -28,6 +28,9 @@ static COMPONENTS: Lazy<Mutex<sysinfo::Components>> = Lazy::new(|| Mutex::new(sy
 static NETWORKS: Lazy<Mutex<(RefreshTime, sysinfo::Networks)>> =
     Lazy::new(|| Mutex::new((RefreshTime::new(), sysinfo::Networks::new_with_refreshed_list())));
 
+#[cfg(feature = "nvidia")]
+static NVML_INSTANCE: Lazy<Mutex<Nvml>> = Lazy::new(|| Mutex::new(Nvml::init().expect("Failed to initialize NVML")));
+
 pub fn get_disks() -> String {
     let mut disks = DISKS.lock().unwrap();
     disks.refresh_list();
@@ -173,14 +176,7 @@ pub fn get_gpus() -> String {
     let mut gpus_data: Map<String, Value> = Map::new();
     #[cfg(feature = "nvidia")]
     {
-        let nvml = match Nvml::init() {
-            Ok(nvml) => nvml,
-            Err(e) => {
-                log::error!("Are you shure you have nvidia gpu and proprietary drivers installed? \
-                  Failed to initialize NVML: {:?}", e);
-                return "".to_string();
-            }
-        };
+        let nvml = NVML_INSTANCE.lock().unwrap();
         let nvidia_device_count = match nvml.device_count() {
             Ok(count) => {
                 if count == 0 {
@@ -195,82 +191,68 @@ pub fn get_gpus() -> String {
             }
         };
 
-        let mut nvidia_gpus_load: Map<String, Value> = Map::new();
         if let Some(gpu_loads) = get_nvidia_load(&nvml, nvidia_device_count) {
             for (index, gpu_load) in gpu_loads.into_iter().enumerate() {
-                nvidia_gpus_load.insert(
+                gpus_data.insert(
                     format!("NVIDIA_GPU_LOAD_{}", index),
                     serde_json::Value::from(gpu_load),
                 );
             }
         }
 
-        let mut nvidia_gpus_vram_current: Map<String, Value> = Map::new();
         if let Some(gpu_vram_current) = get_nvidia_vram_current(&nvml, nvidia_device_count) {
             for (index, vram_current) in gpu_vram_current.into_iter().enumerate() {
-                nvidia_gpus_vram_current.insert(
+                gpus_data.insert(
                     format!("NVIDIA_GPU_VRAM_CURRENT_{}", index),
                     serde_json::Value::from(vram_current),
                 );
             }
         }
 
-        let mut nvidia_gpus_vram_max: Map<String, Value> = Map::new();
         if let Some(gpu_vram_max) = get_nvidia_vram_max(&nvml, nvidia_device_count) {
             for (index, vram_max) in gpu_vram_max.into_iter().enumerate() {
-                nvidia_gpus_vram_max.insert(
+                gpus_data.insert(
                     format!("NVIDIA_GPU_VRAM_MAX_{}", index),
                     serde_json::Value::from(vram_max),
                 );
             }
         }
 
-        let mut nvidia_gpus_freq_graphics_current: Map<String, Value> = Map::new();
         if let Some(gpu_freq) = get_nvidia_freq_graphics_current(&nvml, nvidia_device_count) {
             for (index, freq) in gpu_freq.into_iter().enumerate() {
-                nvidia_gpus_freq_graphics_current.insert(
+                gpus_data.insert(
                     format!("NVIDIA_GPU_FREQ_GRAPHICS_CURRENT_{}", index),
                     serde_json::Value::from(freq),
                 );
             }
         }
 
-        let mut nvidia_gpus_freq_graphics_max: Map<String, Value> = Map::new();
         if let Some(gpu_freq) = get_nvidia_freq_graphics_max(&nvml, nvidia_device_count) {
             for (index, freq) in gpu_freq.into_iter().enumerate() {
-                nvidia_gpus_freq_graphics_max.insert(
+                gpus_data.insert(
                     format!("NVIDIA_GPU_FREQ_GRAPHICS_MAX_{}", index),
                     serde_json::Value::from(freq),
                 );
             }
         }
 
-        let mut nvidia_gpus_freq_vram_current: Map<String, Value> = Map::new();
         if let Some(gpu_freq) = get_nvidia_freq_vram_current(&nvml, nvidia_device_count) {
             for (index, freq) in gpu_freq.into_iter().enumerate() {
-                nvidia_gpus_freq_vram_current.insert(
+                gpus_data.insert(
                     format!("NVIDIA_GPU_FREQ_MEMORY_CURRENT_{}", index),
                     serde_json::Value::from(freq),
                 );
             }
         }
 
-        let mut nvidia_gpus_freq_vram_max: Map<String, Value> = Map::new();
         if let Some(gpu_freq) = get_nvidia_freq_vram_max(&nvml, nvidia_device_count) {
             for (index, freq) in gpu_freq.into_iter().enumerate() {
-                nvidia_gpus_freq_vram_max.insert(
+                gpus_data.insert(
                     format!("NVIDIA_GPU_FREQ_MEMORY_MAX_{}", index),
                     serde_json::Value::from(freq),
                 );
             }
         }
-        gpus_data.extend(nvidia_gpus_load);
-        gpus_data.extend(nvidia_gpus_vram_current);
-        gpus_data.extend(nvidia_gpus_vram_max);
-        gpus_data.extend(nvidia_gpus_freq_graphics_current);
-        gpus_data.extend(nvidia_gpus_freq_graphics_max);
-        gpus_data.extend(nvidia_gpus_freq_vram_current);
-        gpus_data.extend(nvidia_gpus_freq_vram_max);
     }
 
     serde_json::to_string(&json!(gpus_data)).unwrap()

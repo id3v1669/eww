@@ -1,4 +1,8 @@
-/target
-/**/target
-/result
-/result-*
+result
+target
+*.zip
+*.gz
+*.out
+!*rc/
+.direnv
+*.sh

@@ -16,7 +16,6 @@ use crate::{
 /// Struct that gets generated from `RawOpt`.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Opt {
-    pub force_wayland: bool,
     pub log_debug: bool,
     pub show_logs: bool,
     pub restart: bool,
@@ -32,10 +31,6 @@ pub(super) struct RawOpt {
     /// Write out debug logs. (To read the logs, run `eww logs`).
     #[arg(long = "debug", global = true)]
     log_debug: bool,
-
-    /// Force eww to use wayland. This is a no-op if eww was compiled without wayland support.
-    #[arg(long = "force-wayland", global = true)]
-    force_wayland: bool,
 
     /// override path to configuration directory (directory that contains eww.yuck and eww.(s)css)
     #[arg(short, long, global = true)]
@@ -215,8 +210,8 @@ impl Opt {
 
 impl From<RawOpt> for Opt {
     fn from(other: RawOpt) -> Self {
-        let RawOpt { log_debug, force_wayland, config, show_logs, no_daemonize, restart, action } = other;
-        Opt { log_debug, force_wayland, show_logs, restart, config_path: config, action, no_daemonize }
+        let RawOpt { log_debug, config, show_logs, no_daemonize, restart, action } = other;
+        Opt { log_debug, show_logs, restart, config_path: config, action, no_daemonize }
     }
 }
 

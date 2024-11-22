@@ -10,9 +10,7 @@ edition = "2021"
 
 
 [features]
-default = ["x11", "wayland"]
-x11 = ["gdkx11", "x11rb"]
-wayland = ["gtk-layer-shell"]
+nvidia = ["nvml-wrapper"]
 
 [dependencies]
 simplexpr.workspace = true
@@ -20,12 +18,10 @@ eww_shared_util.workspace = true
 yuck.workspace = true
 notifier_host.workspace = true
 
-gtk-layer-shell = { version = "0.8.1", optional = true }
-gdkx11 = { version = "0.18", optional = true }
-x11rb = { version = "0.13.1", features = ["randr"], optional = true }
+gtk-layer-shell = "0.8.1"
 gdk-sys = "0.18.0"
-
 ordered-stream = "0.2.0"
+nvml-wrapper = { version = "0.10", optional = true }
 
 
 grass.workspace = true

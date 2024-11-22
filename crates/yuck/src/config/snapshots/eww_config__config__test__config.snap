@@ -85,15 +85,6 @@ Config(
         span: Span(509, 525, 0),
       ),
       resizable: true,
-      backend_options: X11WindowOptions(
-        wm_ignore: false,
-        sticky: true,
-        window_type: Dock,
-        struts: StrutDefinition(
-          side: Left,
-          dist: Pixels(30),
-        ),
-      ),
     ),
   },
   var_definitions: {

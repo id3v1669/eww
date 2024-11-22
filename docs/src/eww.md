@@ -53,12 +53,7 @@ cd eww
 ```
 Then build:
 ```bash
-cargo build --release --no-default-features --features x11
-```
-**NOTE:**
-When you're on Wayland, build with:
-```bash
-cargo build --release --no-default-features --features=wayland
+cargo build --release
 ```
 
 ### Running eww

@@ -1,7 +1,6 @@
 #![allow(rustdoc::private_intra_doc_links)]
 
 extern crate gtk;
-#[cfg(feature = "wayland")]
 extern crate gtk_layer_shell as gtk_layer_shell;
 
 use anyhow::{Context, Result};
@@ -53,42 +52,12 @@ fn main() {
         return;
     }
 
-    let detected_wayland = detect_wayland();
-    #[allow(unused)]
-    let use_wayland = opts.force_wayland || detected_wayland;
-    #[cfg(all(feature = "wayland", feature = "x11"))]
-    let result = if use_wayland {
-        log::debug!("Running on wayland. force_wayland={}, detected_wayland={}", opts.force_wayland, detected_wayland);
-        run::<display_backend::WaylandBackend>(opts, eww_binary_name)
-    } else {
-        log::debug!("Running on X11. force_wayland={}, detected_wayland={}", opts.force_wayland, detected_wayland);
-        run::<display_backend::X11Backend>(opts, eww_binary_name)
-    };
-
-    #[cfg(all(not(feature = "wayland"), feature = "x11"))]
-    let result = {
-        if use_wayland {
-            log::warn!("Eww compiled without wayland support. Falling back to X11, eventhough wayland was requested.");
-        }
-        run::<display_backend::X11Backend>(opts, eww_binary_name)
-    };
-
-    #[cfg(all(feature = "wayland", not(feature = "x11")))]
     let result = run::<display_backend::WaylandBackend>(opts, eww_binary_name);
-
-    #[cfg(not(any(feature = "wayland", feature = "x11")))]
-    let result = run::<display_backend::NoBackend>(opts, eww_binary_name);
 
     if let Err(err) = result {
         error_handling_ctx::print_error(err);
         std::process::exit(1);
     }
-}
-
-fn detect_wayland() -> bool {
-    let session_type = std::env::var("XDG_SESSION_TYPE").unwrap_or_default();
-    let wayland_display = std::env::var("WAYLAND_DISPLAY").unwrap_or_default();
-    session_type.contains("wayland") || (!wayland_display.is_empty() && !session_type.contains("x11"))
 }
 
 fn run<B: DisplayBackend>(opts: opts::Opt, eww_binary_name: String) -> Result<()> {

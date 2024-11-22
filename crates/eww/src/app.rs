@@ -15,7 +15,7 @@ use anyhow::anyhow;
 use codespan_reporting::files::Files;
 use eww_shared_util::{Span, VarName};
 use gdk::Monitor;
-use glib::ObjectExt;
+use glib::prelude::ObjectExt;
 use gtk::{gdk, glib};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -555,20 +555,6 @@ fn initialize_window<B: DisplayBackend>(
 
     window.realize();
 
-    #[cfg(feature = "x11")]
-    if B::IS_X11 {
-        if let Some(geometry) = window_init.geometry {
-            let _ = apply_window_position(geometry, monitor_geometry, &window);
-            if window_init.backend_options.x11.window_type != yuck::config::backend_window_options::X11WindowType::Normal {
-                window.connect_configure_event(move |window, _| {
-                    let _ = apply_window_position(geometry, monitor_geometry, window);
-                    false
-                });
-            }
-        }
-        display_backend::set_xprops(&window, monitor, window_init)?;
-    }
-
     window.show_all();
 
     Ok(EwwWindow {
@@ -577,22 +563,6 @@ fn initialize_window<B: DisplayBackend>(
         scope_index: window_scope,
         destroy_event_handler_id: None,
     })
-}
-
-/// Apply the provided window-positioning rules to the window.
-#[cfg(feature = "x11")]
-fn apply_window_position(mut window_geometry: WindowGeometry, monitor_geometry: gdk::Rectangle, window: &Window) -> Result<()> {
-    let gdk_window = window.window().context("Failed to get gdk window from gtk window")?;
-    window_geometry.size = Coords::from_pixels(window.size());
-    let actual_window_rect = get_window_rectangle(window_geometry, monitor_geometry);
-
-    let gdk_origin = gdk_window.origin();
-
-    if actual_window_rect.x() != gdk_origin.1 || actual_window_rect.y() != gdk_origin.2 {
-        gdk_window.move_(actual_window_rect.x(), actual_window_rect.y());
-    }
-
-    Ok(())
 }
 
 fn on_screen_changed(window: &Window, _old_screen: Option<&gdk::Screen>) {
@@ -638,29 +608,9 @@ fn get_monitor_plug_name(display: &gdk::Display, monitor_num: i32) -> Option<&st
 }
 
 /// Returns the [Monitor][gdk::Monitor] structure corresponding to the identifer.
-/// Outside of x11, only [MonitorIdentifier::Numeric] is supported
 pub fn get_monitor_from_display(display: &gdk::Display, identifier: &MonitorIdentifier) -> Option<gdk::Monitor> {
     match identifier {
-        MonitorIdentifier::List(list) => {
-            for ident in list {
-                if let Some(monitor) = get_monitor_from_display(display, ident) {
-                    return Some(monitor);
-                }
-            }
-            None
-        }
-        MonitorIdentifier::Primary => display.primary_monitor(),
         MonitorIdentifier::Numeric(num) => display.monitor(*num),
-        MonitorIdentifier::Name(name) => {
-            for m in 0..display.n_monitors() {
-                if let Some(model) = display.monitor(m).and_then(|x| x.model()) {
-                    if model == *name || Some(name.as_str()) == get_monitor_plug_name(display, m) {
-                        return display.monitor(m);
-                    }
-                }
-            }
-            None
-        }
     }
 }
 

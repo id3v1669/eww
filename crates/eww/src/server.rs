@@ -68,9 +68,8 @@ pub fn initialize_server<B: DisplayBackend>(
         }
     });
 
-    if B::IS_WAYLAND {
-        std::env::set_var("GDK_BACKEND", "wayland")
-    }
+    std::env::set_var("GDK_BACKEND", "wayland");
+
     gtk::init()?;
 
     log::debug!("Initializing script var handler");

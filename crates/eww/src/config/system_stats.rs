@@ -1,8 +1,12 @@
 use crate::util::IterAverage;
 use anyhow::{Context, Result};
 use once_cell::sync::Lazy;
+use serde_json::{json, Map, Value};
 use std::{fs::read_to_string, sync::Mutex};
 use sysinfo::System;
+
+#[cfg(feature = "nvidia")]
+use nvml_wrapper::{enum_wrappers::device::Clock, Nvml};
 
 struct RefreshTime(std::time::Instant);
 impl RefreshTime {
@@ -23,6 +27,9 @@ static DISKS: Lazy<Mutex<sysinfo::Disks>> = Lazy::new(|| Mutex::new(sysinfo::Dis
 static COMPONENTS: Lazy<Mutex<sysinfo::Components>> = Lazy::new(|| Mutex::new(sysinfo::Components::new_with_refreshed_list()));
 static NETWORKS: Lazy<Mutex<(RefreshTime, sysinfo::Networks)>> =
     Lazy::new(|| Mutex::new((RefreshTime::new(), sysinfo::Networks::new_with_refreshed_list())));
+
+#[cfg(feature = "nvidia")]
+static NVML_INSTANCE: Lazy<Mutex<Nvml>> = Lazy::new(|| Mutex::new(Nvml::init().expect("Failed to initialize NVML")));
 
 pub fn get_disks() -> String {
     let mut disks = DISKS.lock().unwrap();
@@ -74,18 +81,72 @@ pub fn get_temperatures() -> String {
     let mut components = COMPONENTS.lock().unwrap();
     components.refresh_list();
     components.refresh();
-    components
+
+    // Allow unused mut because we only need it if the nvidia feature is enabled
+    #[allow(unused_mut)]
+    let mut temps: Map<String, Value> = components
         .iter()
         .map(|c| {
             (
                 c.label().to_uppercase().replace(' ', "_"),
-                // It is common for temperatures to report a non-numeric value.
-                // Tolerate it by serializing it as the string "null"
-                c.temperature().to_string().replace("NaN", "\"null\""),
+                if c.temperature().is_nan() { Value::Null } else { Value::from(format!("{:.1}", c.temperature())) },
             )
         })
-        .collect::<serde_json::Value>()
-        .to_string()
+        .collect();
+
+    #[cfg(feature = "nvidia")]
+    if let Some(gpu_temps) = get_all_nvidia_gpu_temperatures() {
+        for (index, gpu_temp) in gpu_temps.into_iter().enumerate() {
+            temps.insert(
+                format!("NVIDIA_GPU_{}", index),
+                if gpu_temp.is_nan() { serde_json::Value::Null } else { serde_json::Value::from(gpu_temp) },
+            );
+        }
+    }
+
+    serde_json::to_string(&json!(temps)).unwrap()
+}
+
+#[cfg(feature = "nvidia")]
+fn get_all_nvidia_gpu_temperatures() -> Option<Vec<f64>> {
+    let nvml = match Nvml::init() {
+        Ok(nvml) => nvml,
+        Err(e) => {
+            log::error!(
+                "Are you shure you have nvidia gpu and proprietary drivers installed? \
+              Failed to initialize NVML: {:?}",
+                e
+            );
+            return None;
+        }
+    };
+
+    let device_count = match nvml.device_count() {
+        Ok(count) => {
+            if count == 0 {
+                log::warn!("NVML was initialized, but no devices were found.");
+                return None;
+            }
+            count
+        }
+        Err(e) => {
+            log::error!("Failed to get NVML device count: {:?}", e);
+            return None;
+        }
+    };
+
+    let mut gpu_temps = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            if let Ok(temp) = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu) {
+                gpu_temps.push(temp as f64);
+            } else {
+                gpu_temps.push(f64::NAN);
+            }
+        }
+    }
+
+    Some(gpu_temps)
 }
 
 pub fn get_cpus() -> String {
@@ -106,32 +167,72 @@ pub fn get_cpus() -> String {
     .to_string()
 }
 
-#[cfg(target_os = "macos")]
-pub fn get_battery_capacity() -> Result<String> {
-    let capacity = String::from_utf8(
-        std::process::Command::new("pmset")
-            .args(&["-g", "batt"])
-            .output()
-            .context("\nError while getting the battery value on macos, with `pmset`: ")?
-            .stdout,
-    )?;
+pub fn get_gpus() -> String {
+    #[allow(unused_mut)]
+    let mut gpus_data: Map<String, Value> = Map::new();
+    #[cfg(feature = "nvidia")]
+    {
+        let nvml = NVML_INSTANCE.lock().unwrap();
+        let nvidia_device_count = match nvml.device_count() {
+            Ok(count) => {
+                if count == 0 {
+                    log::warn!("NVML was initialized, but no devices were found.");
+                    return "".to_string();
+                }
+                count
+            }
+            Err(e) => {
+                log::error!("Failed to get NVML device count: {:?}", e);
+                return "".to_string();
+            }
+        };
 
-    // Example output of that command:
-    // Now drawing from 'Battery Power'
-    //-InternalBattery-0 (id=11403363)	100%; discharging; (no estimate) present: true
-    let regex = regex!(r"[0-9]*%");
-    let mut number = regex.captures(&capacity).unwrap().get(0).unwrap().as_str().to_string();
+        if let Some(gpu_loads) = get_nvidia_load(&nvml, nvidia_device_count) {
+            for (index, gpu_load) in gpu_loads.into_iter().enumerate() {
+                gpus_data.insert(format!("NVIDIA_GPU_LOAD_{}", index), serde_json::Value::from(gpu_load));
+            }
+        }
 
-    // Removes the % at the end
-    number.pop();
-    Ok(format!(
-        "{{ \"BAT0\": {{ \"capacity\": \"{}\", \"status\": \"{}\" }}}}",
-        number,
-        capacity.split(";").collect::<Vec<&str>>()[1]
-    ))
+        if let Some(gpu_vram_current) = get_nvidia_vram_current(&nvml, nvidia_device_count) {
+            for (index, vram_current) in gpu_vram_current.into_iter().enumerate() {
+                gpus_data.insert(format!("NVIDIA_GPU_VRAM_CURRENT_{}", index), serde_json::Value::from(vram_current));
+            }
+        }
+
+        if let Some(gpu_vram_max) = get_nvidia_vram_max(&nvml, nvidia_device_count) {
+            for (index, vram_max) in gpu_vram_max.into_iter().enumerate() {
+                gpus_data.insert(format!("NVIDIA_GPU_VRAM_MAX_{}", index), serde_json::Value::from(vram_max));
+            }
+        }
+
+        if let Some(gpu_freq) = get_nvidia_freq_graphics_current(&nvml, nvidia_device_count) {
+            for (index, freq) in gpu_freq.into_iter().enumerate() {
+                gpus_data.insert(format!("NVIDIA_GPU_FREQ_GRAPHICS_CURRENT_{}", index), serde_json::Value::from(freq));
+            }
+        }
+
+        if let Some(gpu_freq) = get_nvidia_freq_graphics_max(&nvml, nvidia_device_count) {
+            for (index, freq) in gpu_freq.into_iter().enumerate() {
+                gpus_data.insert(format!("NVIDIA_GPU_FREQ_GRAPHICS_MAX_{}", index), serde_json::Value::from(freq));
+            }
+        }
+
+        if let Some(gpu_freq) = get_nvidia_freq_vram_current(&nvml, nvidia_device_count) {
+            for (index, freq) in gpu_freq.into_iter().enumerate() {
+                gpus_data.insert(format!("NVIDIA_GPU_FREQ_MEMORY_CURRENT_{}", index), serde_json::Value::from(freq));
+            }
+        }
+
+        if let Some(gpu_freq) = get_nvidia_freq_vram_max(&nvml, nvidia_device_count) {
+            for (index, freq) in gpu_freq.into_iter().enumerate() {
+                gpus_data.insert(format!("NVIDIA_GPU_FREQ_MEMORY_MAX_{}", index), serde_json::Value::from(freq));
+            }
+        }
+    }
+
+    serde_json::to_string(&json!(gpus_data)).unwrap()
 }
 
-#[cfg(target_os = "linux")]
 pub fn get_battery_capacity() -> Result<String> {
     use std::{collections::HashMap, sync::atomic::AtomicBool};
 
@@ -202,58 +303,6 @@ pub fn get_battery_capacity() -> Result<String> {
     Ok(serde_json::to_string(&(Data { batteries, total_avg: (current / total) * 100_f64 })).unwrap())
 }
 
-#[cfg(any(target_os = "netbsd", target_os = "freebsd", target_os = "openbsd"))]
-pub fn get_battery_capacity() -> Result<String> {
-    let batteries = String::from_utf8(
-        // I have only tested `apm` on FreeBSD, but it *should* work on all of the listed targets,
-        // based on what I can tell from their online man pages.
-        std::process::Command::new("apm")
-            .output()
-            .context("\nError while getting the battery values on bsd, with `apm`: ")?
-            .stdout,
-    )?;
-
-    // `apm` output should look something like this:
-    // $ apm
-    // ...
-    // Remaining battery life: 87%
-    // Remaining battery time: unknown
-    // Number of batteries: 1
-    // Battery 0
-    //         Battery Status: charging
-    //         Remaining battery life: 87%
-    //         Remaining battery time: unknown
-    // ...
-    // last 4 lines are repeated for each battery.
-    // see also:
-    // https://www.freebsd.org/cgi/man.cgi?query=apm&manpath=FreeBSD+13.1-RELEASE+and+Ports
-    // https://man.openbsd.org/amd64/apm.8
-    // https://man.netbsd.org/apm.8
-    let mut json = String::from('{');
-    let re_total = regex!(r"(?m)^Remaining battery life: (\d+)%");
-    let re_single = regex!(r"(?sm)^Battery (\d+):.*?Status: (\w+).*?(\d+)%");
-    for bat in re_single.captures_iter(&batteries) {
-        json.push_str(&format!(
-            r#""BAT{}": {{ "status": "{}", "capacity": {} }}, "#,
-            bat.get(1).unwrap().as_str(),
-            bat.get(2).unwrap().as_str(),
-            bat.get(3).unwrap().as_str(),
-        ))
-    }
-
-    json.push_str(&format!(r#""total_avg": {}}}"#, re_total.captures(&batteries).unwrap().get(1).unwrap().as_str()));
-    Ok(json)
-}
-
-#[cfg(not(target_os = "macos"))]
-#[cfg(not(target_os = "linux"))]
-#[cfg(not(target_os = "netbsd"))]
-#[cfg(not(target_os = "freebsd"))]
-#[cfg(not(target_os = "openbsd"))]
-pub fn get_battery_capacity() -> Result<String> {
-    Err(anyhow::anyhow!("Eww doesn't support your OS for getting the battery capacity"))
-}
-
 pub fn net() -> String {
     let (ref mut last_refresh, ref mut networks) = &mut *NETWORKS.lock().unwrap();
 
@@ -273,4 +322,137 @@ pub fn net() -> String {
 
 pub fn get_time() -> String {
     chrono::offset::Utc::now().timestamp().to_string()
+}
+
+#[cfg(feature = "nvidia")]
+pub fn get_nvidia_load(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_loads = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.utilization_rates() {
+                Ok(util) => {
+                    gpu_loads.push(util.gpu);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU utilization: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_loads)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_vram_current(nvml: &Nvml, device_count: u32) -> Option<Vec<u64>> {
+    let mut gpu_vram_current = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.memory_info() {
+                Ok(mem) => {
+                    gpu_vram_current.push(mem.used);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU current memory info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_vram_current)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_vram_max(nvml: &Nvml, device_count: u32) -> Option<Vec<u64>> {
+    let mut gpu_vram_max = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.memory_info() {
+                Ok(mem) => {
+                    gpu_vram_max.push(mem.total);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU max memory info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_vram_max)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_freq_graphics_current(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_freq = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.clock_info(Clock::Graphics) {
+                Ok(clock) => {
+                    gpu_freq.push(clock);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU current clock info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_freq)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_freq_graphics_max(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_freq = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.max_clock_info(Clock::Graphics) {
+                Ok(clock) => {
+                    gpu_freq.push(clock);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia GPU max clock info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_freq)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_freq_vram_current(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_freq = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.clock_info(Clock::Memory) {
+                Ok(clock) => {
+                    gpu_freq.push(clock);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia VRAM current clock info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_freq)
+}
+
+#[cfg(feature = "nvidia")]
+fn get_nvidia_freq_vram_max(nvml: &Nvml, device_count: u32) -> Option<Vec<u32>> {
+    let mut gpu_freq = Vec::new();
+    for i in 0..device_count {
+        if let Ok(device) = nvml.device_by_index(i) {
+            match device.max_clock_info(Clock::Memory) {
+                Ok(clock) => {
+                    gpu_freq.push(clock);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get Nvidia VRAM max clock info: {:?}", e);
+                    return None;
+                }
+            }
+        }
+    }
+    Some(gpu_freq)
 }

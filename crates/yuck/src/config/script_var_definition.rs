@@ -39,6 +39,7 @@ impl ScriptVarDefinition {
     }
 }
 
+#[allow(unpredictable_function_pointer_comparisons)]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum VarSource {
     // TODO allow for other executors? (python, etc)

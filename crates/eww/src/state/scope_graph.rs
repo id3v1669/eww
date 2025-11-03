@@ -530,7 +530,7 @@ mod internal {
                                 .inheritance_relations
                                 .child_to_parent
                                 .get(parent_scope_idx)
-                                .map_or(false, |(_, e)| e.references.contains(var));
+                                .is_some_and(|(_, e)| e.references.contains(var));
                         if !parent_has_access_to_var {
                             bail!("scope inherited variable that parent scope doesn't have access to");
                         }

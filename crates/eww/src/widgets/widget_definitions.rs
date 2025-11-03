@@ -26,7 +26,7 @@ use std::{
 use yuck::{
     config::file_provider::YuckFileProvider,
     error::{DiagError, DiagResult},
-    format_diagnostic::{span_to_secondary_label, DiagnosticExt},
+    format_diagnostic::span_to_secondary_label,
     gen_diagnostic,
     parser::from_ast::FromAst,
 };
@@ -919,7 +919,7 @@ fn build_gtk_event_box(bargs: &mut BuilderArgs) -> Result<gtk::EventBox> {
                 };
                 gtk_widget.drag_source_set(
                     ModifierType::BUTTON1_MASK,
-                    &[target_entry.clone()],
+                    std::slice::from_ref(&target_entry),
                     gdk::DragAction::COPY | gdk::DragAction::MOVE,
                 );
                 gtk_widget.drag_source_set_target_list(Some(&TargetList::new(&[target_entry])));

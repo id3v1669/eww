@@ -200,8 +200,8 @@ impl ToDiagnostic for simplexpr::eval::EvalError {
                 gen_diagnostic!(self).with_notes(notes)
             }
             EvalError::Spanned(span, err) => {
-                if let EvalError::JaqParseError(err) = err.as_ref() {
-                    if let Some(ref err) = err.as_ref().0 {
+                if let EvalError::JaqParseError(err) = err.as_ref() 
+                    && let Some(ref err) = err.as_ref().0 {
                         let span = span.new_relative(err.span().start, err.span().end).shifted(1);
                         let mut diag = gen_diagnostic!(self, span);
 
@@ -215,9 +215,9 @@ impl ToDiagnostic for simplexpr::eval::EvalError {
                             diag = diag.with_label(span_to_primary_label(span).with_message(label));
                         }
                         return diag;
-                    }
+                
                 }
-                return err.as_ref().to_diagnostic().with_label(span_to_primary_label(*span));
+                err.as_ref().to_diagnostic().with_label(span_to_primary_label(*span))
             }
             _ => gen_diagnostic!(self, self.span()),
         }

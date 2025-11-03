@@ -74,10 +74,10 @@ impl Watcher {
                     did_remove && hosts.is_empty()
                 };
 
-                if removed_last {
-                    if let Err(e) = Watcher::is_status_notifier_host_registered_refresh(&ctxt).await {
+                if removed_last 
+                    && let Err(e) = Watcher::is_status_notifier_host_registered_refresh(&ctxt).await {
                         log::error!("failed to signal Watcher: {}", e);
-                    }
+                    
                 }
                 if let Err(e) = Watcher::status_notifier_host_unregistered(&ctxt).await {
                     log::error!("failed to signal Watcher: {}", e);

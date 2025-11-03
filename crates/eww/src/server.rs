@@ -13,7 +13,6 @@ use std::{
     collections::{HashMap, HashSet},
     io::Write,
     marker::PhantomData,
-    os::unix::io::AsRawFd,
     path::Path,
     rc::Rc,
     sync::{atomic::Ordering, Arc},
@@ -68,7 +67,7 @@ pub fn initialize_server<B: DisplayBackend>(
         }
     });
 
-    std::env::set_var("GDK_BACKEND", "wayland");
+    unsafe { std::env::set_var("GDK_BACKEND", "wayland"); }
 
     gtk::init()?;
 
@@ -98,10 +97,10 @@ pub fn initialize_server<B: DisplayBackend>(
         gtk::StyleContext::add_provider_for_screen(&screen, &app.css_provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 
-    if let Ok((file_id, css)) = config::scss::parse_scss_from_config(app.paths.get_config_dir()) {
-        if let Err(e) = app.load_css(file_id, &css) {
+    if let Ok((file_id, css)) = config::scss::parse_scss_from_config(app.paths.get_config_dir()) 
+        && let Err(e) = app.load_css(file_id, &css) {
             error_handling_ctx::print_error(e);
-        }
+        
     }
 
     // initialize all the handlers and tasks running asyncronously
@@ -192,10 +191,10 @@ async fn run_filewatch<P: AsRef<Path>>(config_dir: P, evt_send: UnboundedSender<
                 let ext = path.extension().unwrap_or_default();
                 ext == "yuck" || ext == "scss" || ext == "css"
             });
-            if relevant_files_changed {
-                if let Err(err) = tx.send(()) {
+            if relevant_files_changed 
+                && let Err(err) = tx.send(()) {
                     log::warn!("Error forwarding file update event: {:?}", err);
-                }
+                
             }
         }
         Ok(_) => {}
@@ -263,13 +262,12 @@ fn do_detach(log_file_path: impl AsRef<Path>) -> Result<ForkResult> {
         .append(true)
         .open(&log_file_path)
         .unwrap_or_else(|_| panic!("Error opening log file ({}), for writing", log_file_path.as_ref().to_string_lossy()));
-    let fd = file.as_raw_fd();
 
-    if nix::unistd::isatty(1)? {
-        nix::unistd::dup2(fd, std::io::stdout().as_raw_fd())?;
+    if nix::unistd::isatty(std::io::stdout())? {
+        nix::unistd::dup2_stdout(&file)?;
     }
-    if nix::unistd::isatty(2)? {
-        nix::unistd::dup2(fd, std::io::stderr().as_raw_fd())?;
+    if nix::unistd::isatty(std::io::stderr())? {
+        nix::unistd::dup2_stderr(&file)?;
     }
 
     Ok(ForkResult::Child)

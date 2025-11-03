@@ -30,7 +30,7 @@ pub fn do_server_call(stream: &mut UnixStream, action: &opts::ActionWithServer) 
     log::debug!("Forwarding options to server");
     stream.set_nonblocking(false).context("Failed to set stream to non-blocking")?;
 
-    let message_bytes = bincode::serialize(&action)?;
+    let message_bytes = bincode::serde::encode_to_vec(action, bincode::config::standard())?;
 
     stream.write(&(message_bytes.len() as u32).to_be_bytes()).context("Failed to send command size header to IPC stream")?;
 
@@ -43,7 +43,7 @@ pub fn do_server_call(stream: &mut UnixStream, action: &opts::ActionWithServer) 
     Ok(if buf.is_empty() {
         None
     } else {
-        let buf = bincode::deserialize(&buf)?;
+        let (buf, _): (DaemonResponse, _) = bincode::serde::decode_from_slice(&buf, bincode::config::standard())?;
         Some(buf)
     })
 }

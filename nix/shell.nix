@@ -15,6 +15,9 @@ pkgs.mkShell {
     librsvg
 
     # Tools
+    killall
+    socat
+    alsa-utils
     pkg-config
     cargo-audit
     cargo-deny

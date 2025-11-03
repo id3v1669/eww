@@ -60,6 +60,6 @@ pub fn stringify_diagnostic(mut diagnostic: codespan_reporting::diagnostic::Diag
     let mut buf = Vec::new();
     let mut writer = term::termcolor::Ansi::new(&mut buf);
     let files = FILE_DATABASE.read().unwrap();
-    term::emit(&mut writer, &config, &*files, &diagnostic)?;
+    term::emit_to_write_style(&mut writer, &config, &*files, &diagnostic)?;
     Ok(String::from_utf8(buf)?)
 }

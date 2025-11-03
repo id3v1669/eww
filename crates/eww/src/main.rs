@@ -21,7 +21,6 @@ mod daemon_response;
 mod display_backend;
 mod error_handling_ctx;
 mod file_database;
-mod geometry;
 mod ipc_server;
 mod opts;
 mod paths;
@@ -183,10 +182,10 @@ fn handle_daemon_response(res: DaemonResponse) {
 
 fn attempt_connect(socket_path: impl AsRef<Path>, attempts: usize) -> Option<net::UnixStream> {
     for _ in 0..attempts {
-        if let Ok(mut con) = net::UnixStream::connect(&socket_path) {
-            if client::do_server_call(&mut con, &opts::ActionWithServer::Ping).is_ok() {
+        if let Ok(mut con) = net::UnixStream::connect(&socket_path) 
+            && client::do_server_call(&mut con, &opts::ActionWithServer::Ping).is_ok() {
                 return net::UnixStream::connect(&socket_path).ok();
-            }
+            
         }
         std::thread::sleep(Duration::from_millis(200));
     }

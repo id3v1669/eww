@@ -15,13 +15,13 @@
 //! There are two separate services that are required for the tray side of the protocol:
 //!
 //! - `StatusNotifierWatcher`, a service which tracks what items and trays there are but doesn't do
-//!     any rendering. This is implemented by [`Watcher`] (see that for further details), and
-//!     should always be started alongside the `StatusNotifierHost`.
+//!   any rendering. This is implemented by [`Watcher`] (see that for further details), and
+//!   should always be started alongside the `StatusNotifierHost`.
 //!
 //! - `StatusNotifierHost`, the actual tray, which registers itself to the StatusNotifierHost and
-//!     subscribes to its signals to know what items exist. This DBus service has a completely
-//!     empty interface, but is mainly by StatusNotifierWatcher to know when trays disappear. This
-//!     is represented by the [`Host`] trait.
+//!   subscribes to its signals to know what items exist. This DBus service has a completely
+//!   empty interface, but is mainly by StatusNotifierWatcher to know when trays disappear. This
+//!   is represented by the [`Host`] trait.
 //!
 //! The actual tray implements the [`Host`] trait to be notified of when items (called
 //! `StatusNotifierItem` in the spec and represented by [`Item`]) appear and disappear, then calls

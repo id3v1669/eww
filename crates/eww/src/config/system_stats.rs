@@ -33,8 +33,7 @@ static NVML_INSTANCE: Lazy<Mutex<Nvml>> = Lazy::new(|| Mutex::new(Nvml::init().e
 
 pub fn get_disks() -> String {
     let mut disks = DISKS.lock().unwrap();
-    disks.refresh_list();
-    disks.refresh();
+    disks.refresh(true);
 
     disks
         .iter()
@@ -79,8 +78,7 @@ pub fn get_ram() -> String {
 
 pub fn get_temperatures() -> String {
     let mut components = COMPONENTS.lock().unwrap();
-    components.refresh_list();
-    components.refresh();
+    components.refresh(true);
 
     // Allow unused mut because we only need it if the nvidia feature is enabled
     #[allow(unused_mut)]
@@ -89,7 +87,7 @@ pub fn get_temperatures() -> String {
         .map(|c| {
             (
                 c.label().to_uppercase().replace(' ', "_"),
-                if c.temperature().is_nan() { Value::Null } else { Value::from(format!("{:.1}", c.temperature())) },
+                if c.temperature().is_none() { Value::Null } else { Value::from(format!("{:.1}", c.temperature().unwrap())) },
             )
         })
         .collect();
@@ -304,9 +302,9 @@ pub fn get_battery_capacity() -> Result<String> {
 }
 
 pub fn net() -> String {
-    let (ref mut last_refresh, ref mut networks) = &mut *NETWORKS.lock().unwrap();
+    let (last_refresh, networks) = &mut *NETWORKS.lock().unwrap();
 
-    networks.refresh_list();
+    networks.refresh(true);
     let elapsed = last_refresh.next_refresh();
 
     networks

@@ -49,6 +49,7 @@ impl FromAstElementContent for Include {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum TopLevel {
     Include(Include),
     VarDefinition(VarDefinition),

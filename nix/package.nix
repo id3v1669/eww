@@ -3,13 +3,13 @@
 , rustPlatform
 , fetchFromGitHub
 , pkg-config
-, wrapGAppsHook
+, wrapGAppsHook3
 , gtk3
 , librsvg
 , gtk-layer-shell
 , stdenv
 , libdbusmenu-gtk3
-, cudaSupport ? config.cudaSupport
+, nvidiaSupport ? config.cudaSupport
 , autoAddDriverRunpath
 }:
 let
@@ -25,8 +25,8 @@ rustPlatform.buildRustPackage rec {
 
   nativeBuildInputs = [
     pkg-config
-    wrapGAppsHook
-  ] ++ lib.optionals cudaSupport [
+    wrapGAppsHook3
+  ] ++ lib.optionals nvidiaSupport [
     autoAddDriverRunpath
   ];
 
@@ -37,7 +37,7 @@ rustPlatform.buildRustPackage rec {
     librsvg
   ];
 
-  buildFeatures = [] ++ lib.optionals cudaSupport [
+  buildFeatures = [] ++ lib.optionals nvidiaSupport [
     "nvidia"
   ];
 

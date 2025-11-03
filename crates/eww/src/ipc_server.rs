@@ -40,7 +40,7 @@ async fn handle_connection(mut stream: tokio::net::UnixStream, evt_send: Unbound
     if let Some(mut response_recv) = maybe_response_recv {
         log::debug!("Waiting for response for IPC client");
         if let Ok(Some(response)) = tokio::time::timeout(Duration::from_millis(100), response_recv.recv()).await {
-            let response = bincode::serialize(&response)?;
+            let response = bincode::serde::encode_to_vec(&response, bincode::config::standard())?;
             let result = &stream_write.write_all(&response).await;
             crate::print_result_err!("sending text response to ipc client", &result);
         }
@@ -60,5 +60,7 @@ async fn read_action_from_stream(stream_read: &'_ mut tokio::net::unix::ReadHalf
         stream_read.read_buf(&mut raw_message).await.context("Failed to read actual IPC message")?;
     }
 
-    bincode::deserialize(&raw_message).context("Failed to parse client message")
+    let (result, _) =
+        bincode::serde::decode_from_slice(&raw_message, bincode::config::standard()).context("Failed to parse client message")?;
+    Ok(result)
 }

@@ -215,10 +215,10 @@ impl WidgetImpl for GraphPriv {
                             max = *value;
                         }
                     }
-                    if let Some((_, value)) = extra_point {
-                        if value > max {
+                    if let Some((_, value)) = extra_point 
+                        && value > max {
                             max = value;
-                        }
+                        
                     }
                 }
                 (min, max)

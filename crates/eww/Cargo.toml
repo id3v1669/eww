@@ -6,7 +6,7 @@ description = "Widgets for everyone!"
 license = "MIT"
 repository = "https://github.com/elkowar/eww"
 homepage = "https://github.com/elkowar/eww"
-edition = "2021"
+edition = "2024"
 
 
 [features]
@@ -18,10 +18,10 @@ eww_shared_util.workspace = true
 yuck.workspace = true
 notifier_host.workspace = true
 
-gtk-layer-shell = "0.8.1"
-gdk-sys = "0.18.0"
+gtk-layer-shell = "0.8.2"
+gdk-sys = "0.18.2"
 ordered-stream = "0.2.0"
-nvml-wrapper = { version = "0.10", optional = true }
+nvml-wrapper = { version = "0.11", optional = true }
 
 
 grass.workspace = true

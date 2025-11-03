@@ -197,7 +197,7 @@ impl SimplExpr {
                 }
                 Ok(DynVal(output, *span))
             }
-            SimplExpr::VarRef(span, ref name) => {
+            SimplExpr::VarRef(span, name) => {
                 let similar_ish = values.keys().filter(|keys| strsim::levenshtein(&keys.0, &name.0) < 3).cloned().collect_vec();
                 Ok(values
                     .get(name)
@@ -487,7 +487,7 @@ fn call_expr_function(name: &str, args: Vec<DynVal>) -> Result<DynVal, EvalError
     }
 }
 
-#[cached(size = 10, result = true, sync_writes = true)]
+#[cached(size = 10, result = true, sync_writes = "default")]
 fn prepare_jaq_filter(code: String) -> Result<Arc<jaq_interpret::Filter>, EvalError> {
     let (filter, mut errors) = jaq_parse::parse(&code, jaq_parse::main());
     let filter = match filter {

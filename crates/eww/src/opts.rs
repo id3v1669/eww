@@ -273,7 +273,7 @@ impl ActionWithServer {
                     duration,
                     sender,
                     args,
-                })
+                });
             }
             ActionWithServer::CloseWindows { windows } => {
                 return with_response_channel(|sender| app::DaemonCommand::CloseWindows { windows, sender });
@@ -282,10 +282,10 @@ impl ActionWithServer {
             ActionWithServer::ListWindows => return with_response_channel(app::DaemonCommand::ListWindows),
             ActionWithServer::ListActiveWindows => return with_response_channel(app::DaemonCommand::ListActiveWindows),
             ActionWithServer::ShowState { all } => {
-                return with_response_channel(|sender| app::DaemonCommand::PrintState { all, sender })
+                return with_response_channel(|sender| app::DaemonCommand::PrintState { all, sender });
             }
             ActionWithServer::GetVar { name } => {
-                return with_response_channel(|sender| app::DaemonCommand::GetVar { name, sender })
+                return with_response_channel(|sender| app::DaemonCommand::GetVar { name, sender });
             }
             ActionWithServer::ShowDebug => return with_response_channel(app::DaemonCommand::PrintDebug),
             ActionWithServer::ShowGraph => return with_response_channel(app::DaemonCommand::PrintGraph),

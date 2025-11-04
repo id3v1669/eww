@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use simplexpr::{dynval::DynVal, SimplExpr};
+use simplexpr::{SimplExpr, dynval::DynVal};
 use yuck::config::{
     script_var_definition::{PollScriptVar, ScriptVarDefinition, VarSource},
     var_definition::VarDefinition,

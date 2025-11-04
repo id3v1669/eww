@@ -2,13 +2,13 @@ use anyhow::{Context, Result};
 use codespan_reporting::diagnostic::Severity;
 use eww_shared_util::{AttrName, Spanned};
 use gtk::{
+    Orientation,
     gdk::prelude::Cast,
     prelude::{BoxExt, ContainerExt, WidgetExt},
-    Orientation,
 };
 use itertools::Itertools;
 use maplit::hashmap;
-use simplexpr::{dynval::DynVal, SimplExpr};
+use simplexpr::{SimplExpr, dynval::DynVal};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use yuck::{
     config::{

@@ -1,12 +1,12 @@
 use super::scope::Listener;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 use eww_shared_util::{Span, VarName};
 use maplit::hashmap;
-use simplexpr::{dynval::DynVal, SimplExpr};
+use simplexpr::{SimplExpr, dynval::DynVal};
 
 use crate::state::scope_graph::ScopeGraph;
 

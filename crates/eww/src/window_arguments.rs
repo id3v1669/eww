@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use eww_shared_util::VarName;
 use simplexpr::dynval::DynVal;
 use std::{

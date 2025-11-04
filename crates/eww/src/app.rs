@@ -19,7 +19,7 @@ use glib::prelude::ObjectExt;
 use gtk::{gdk, glib};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use simplexpr::{dynval::DynVal, SimplExpr};
+use simplexpr::{SimplExpr, dynval::DynVal};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},

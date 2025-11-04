@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 /// Stores references to all the paths relevant to eww, and abstracts access to these files and directories
 #[derive(Debug, Clone)]

@@ -1,10 +1,10 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use eww_shared_util::VarName;
 use std::collections::HashMap;
 use yuck::{
     config::{
-        script_var_definition::ScriptVarDefinition, validate::ValidationError, widget_definition::WidgetDefinition,
-        window_definition::WindowDefinition, Config,
+        Config, script_var_definition::ScriptVarDefinition, validate::ValidationError, widget_definition::WidgetDefinition,
+        window_definition::WindowDefinition,
     },
     error::DiagError,
     format_diagnostic::ToDiagnostic,

@@ -51,11 +51,7 @@ impl fmt::Debug for DynVal {
 /// Manually implement equality, to allow for values in different formats (i.e. "1" and "1.0") to still be considered as equal.
 impl std::cmp::PartialEq<Self> for DynVal {
     fn eq(&self, other: &Self) -> bool {
-        if let (Ok(a), Ok(b)) = (self.as_f64(), other.as_f64()) {
-            a == b
-        } else {
-            self.0 == other.0
-        }
+        if let (Ok(a), Ok(b)) = (self.as_f64(), other.as_f64()) { a == b } else { self.0 == other.0 }
     }
 }
 

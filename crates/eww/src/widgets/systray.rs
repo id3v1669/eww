@@ -2,7 +2,7 @@ use crate::widgets::window::Window;
 use futures::StreamExt;
 use gtk::{
     cairo::Surface,
-    gdk::{self, ffi::gdk_cairo_surface_create_from_pixbuf, NotifyType},
+    gdk::{self, NotifyType, ffi::gdk_cairo_surface_create_from_pixbuf},
     glib,
     prelude::*,
 };

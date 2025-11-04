@@ -19,10 +19,8 @@ chrono-tz.workspace = true
 chrono = { workspace = true, features = ["unstable-locales"] }
 itertools.workspace = true
 jaq-core.workspace = true
-jaq-parse.workspace = true
 jaq-std.workspace = true
-jaq-interpret.workspace = true
-jaq-syn.workspace = true
+jaq-json = { workspace = true, features = ["serde_json"] }
 lalrpop-util.workspace = true
 once_cell.workspace = true
 regex.workspace = true

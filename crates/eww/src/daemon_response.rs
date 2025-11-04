@@ -38,11 +38,7 @@ impl DaemonResponseSender {
     /// Given a list of errors, respond with an error value if there are any errors, and respond with success otherwise.
     pub fn respond_with_error_list(&self, errors: impl IntoIterator<Item = anyhow::Error>) -> Result<()> {
         let errors = errors.into_iter().map(|e| error_handling_ctx::format_error(&e)).join("\n");
-        if errors.is_empty() {
-            self.send_success(String::new())
-        } else {
-            self.respond_with_error_msg(errors)
-        }
+        if errors.is_empty() { self.send_success(String::new()) } else { self.respond_with_error_msg(errors) }
     }
 
     /// In case of an Err, send the error message to a sender.

@@ -4,13 +4,13 @@ use crate::{
     app,
     config::{create_script_var_failed_warn, script_var},
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use app::DaemonCommand;
 
 use eww_shared_util::VarName;
 use nix::{
     sys::signal,
-    unistd::{setpgid, Pid},
+    unistd::{Pid, setpgid},
 };
 use simplexpr::dynval::DynVal;
 use tokio::{

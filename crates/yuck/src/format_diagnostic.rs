@@ -200,22 +200,12 @@ impl ToDiagnostic for simplexpr::eval::EvalError {
                 gen_diagnostic!(self).with_notes(notes)
             }
             EvalError::Spanned(span, err) => {
-                if let EvalError::JaqParseError(err) = err.as_ref() 
-                    && let Some(ref err) = err.as_ref().0 {
-                        let span = span.new_relative(err.span().start, err.span().end).shifted(1);
-                        let mut diag = gen_diagnostic!(self, span);
-
-                        if let Some(label) = err.label() {
-                            diag = diag.with_label(span_to_secondary_label(span).with_message(label));
-                        }
-
-                        let expected: Vec<_> = err.expected().filter_map(|x| x.clone()).sorted().collect();
-                        if !expected.is_empty() {
-                            let label = format!("Expected one of {} here", expected.join(", "));
-                            diag = diag.with_label(span_to_primary_label(span).with_message(label));
-                        }
-                        return diag;
-                
+                if let EvalError::JaqParseError(err) = err.as_ref() {
+                    let mut diag = gen_diagnostic!(self, span);
+                    if let Some(ref err_msg) = err.0 {
+                        diag = diag.with_label(span_to_primary_label(*span).with_message(err_msg));
+                    }
+                    return diag;
                 }
                 err.as_ref().to_diagnostic().with_label(span_to_primary_label(*span))
             }

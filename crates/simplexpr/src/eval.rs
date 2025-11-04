@@ -1,13 +1,12 @@
 use cached::proc_macro::cached;
 use chrono::{Local, LocalResult, TimeZone};
 use itertools::Itertools;
-use jaq_interpret::FilterT;
 
 use crate::{
     ast::{AccessType, BinOp, SimplExpr, UnaryOp},
     dynval::{ConversionError, DynVal},
 };
-use eww_shared_util::{get_locale, Span, Spanned, VarName};
+use eww_shared_util::{Span, Spanned, VarName, get_locale};
 use std::{
     collections::HashMap,
     convert::{Infallible, TryFrom, TryInto},
@@ -16,7 +15,7 @@ use std::{
 };
 
 #[derive(Debug, thiserror::Error)]
-pub struct JaqParseError(pub Option<jaq_parse::Error>);
+pub struct JaqParseError(pub Option<String>);
 impl std::fmt::Display for JaqParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.0 {
@@ -214,11 +213,7 @@ impl SimplExpr {
                     BinOp::Or => DynVal::from(a.as_bool()? || b()?.as_bool()?),
                     BinOp::Elvis => {
                         let is_null = matches!(serde_json::from_str(&a.0), Ok(serde_json::Value::Null));
-                        if a.0.is_empty() || is_null {
-                            b()?
-                        } else {
-                            a
-                        }
+                        if a.0.is_empty() || is_null { b()? } else { a }
                     }
                     // Eager operators
                     _ => {
@@ -487,36 +482,87 @@ fn call_expr_function(name: &str, args: Vec<DynVal>) -> Result<DynVal, EvalError
     }
 }
 
+use jaq_core::{Ctx, RcIter, compile, load};
+use jaq_json::Val;
+
 #[cached(size = 10, result = true, sync_writes = "default")]
-fn prepare_jaq_filter(code: String) -> Result<Arc<jaq_interpret::Filter>, EvalError> {
-    let (filter, mut errors) = jaq_parse::parse(&code, jaq_parse::main());
-    let filter = match filter {
-        Some(x) => x,
-        None => return Err(EvalError::JaqParseError(Box::new(JaqParseError(errors.pop())))),
-    };
-    let mut defs = jaq_interpret::ParseCtx::new(Vec::new());
-    defs.insert_natives(jaq_core::core());
-    defs.insert_defs(jaq_std::std());
+fn prepare_jaq_filter(code: String) -> Result<Arc<jaq_core::Filter<jaq_core::Native<Val>>>, EvalError> {
+    // Create a file for the code
+    let program = load::File { code: code.as_str(), path: "filter" };
 
-    let filter = defs.compile(filter);
+    // Create loader with standard library definitions
+    let loader = load::Loader::new(jaq_std::defs().chain(jaq_json::defs()));
+    let arena = load::Arena::default();
 
-    if let Some(error) = errors.pop() {
-        return Err(EvalError::JaqParseError(Box::new(JaqParseError(Some(error)))));
-    }
+    // Load modules
+    let modules = loader.load(&arena, program).map_err(|errs| {
+        let err_msg = errs.iter().map(|(file, err)| format!("{}: {:?}", file.path, err)).collect::<Vec<_>>().join(", ");
+        EvalError::JaqParseError(Box::new(JaqParseError(Some(err_msg))))
+    })?;
+
+    // Compile with standard library functions
+    let filter =
+        compile::Compiler::default().with_funs(jaq_std::funs().chain(jaq_json::funs())).compile(modules).map_err(|errs| {
+            let err_msg = errs.iter().map(|(file, err)| format!("{}: {:?}", file.path, err)).collect::<Vec<_>>().join(", ");
+            EvalError::JaqParseError(Box::new(JaqParseError(Some(err_msg))))
+        })?;
+
     Ok(Arc::new(filter))
 }
 
 fn run_jaq_function(json: serde_json::Value, code: String) -> Result<DynVal, EvalError> {
-    let filter: Arc<jaq_interpret::Filter> = prepare_jaq_filter(code)?;
-    let inputs = jaq_interpret::RcIter::new(std::iter::empty());
+    let filter = prepare_jaq_filter(code)?;
+    let inputs = RcIter::new(std::iter::empty());
+
+    // Convert serde_json::Value to jaq_json::Val using From trait
+    let val = Val::from(json);
+
     let out = filter
-        .run((jaq_interpret::Ctx::new([], &inputs), jaq_interpret::Val::from(json)))
-        .map(|x| x.map(Into::<serde_json::Value>::into))
-        .map(|x| x.map(|x| DynVal::from_string(serde_json::to_string(&x).unwrap())))
-        .collect::<Result<_, _>>()
+        .run((Ctx::new([], &inputs), val))
+        .map(|result| {
+            result.map(|v| {
+                // Convert jaq_json::Val back to serde_json::Value
+                let json_val: serde_json::Value = v.into();
+                DynVal::from_string(serde_json::to_string(&json_val).unwrap())
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| EvalError::JaqError(e.to_string()))?;
-    Ok(out)
+
+    // Return the first result or empty string
+    Ok(out.into_iter().next().unwrap_or_else(|| DynVal::from("")))
 }
+
+// #[cached(size = 10, result = true, sync_writes = "default")]
+// fn prepare_jaq_filter(code: String) -> Result<Arc<jaq_core::Filter>, EvalError> {
+//     let (filter, mut errors) = jaq_core::load::parse(&code, jaq_core::load::parse::Parser::new());
+//     let filter = match filter {
+//         Some(x) => x,
+//         None => return Err(EvalError::JaqParseError(Box::new(JaqParseError(errors.pop())))),
+//     };
+//     let mut defs = jaq_interpret::ParseCtx::new(Vec::new());
+//     defs.insert_natives(jaq_json::base_funs());
+//     defs.insert_defs(jaq_json::defs());
+
+//     let filter = defs.compile(filter);
+
+//     if let Some(error) = errors.pop() {
+//         return Err(EvalError::JaqParseError(Box::new(JaqParseError(Some(error)))));
+//     }
+//     Ok(Arc::new(filter))
+// }
+
+// fn run_jaq_function(json: serde_json::Value, code: String) -> Result<DynVal, EvalError> {
+//     let filter: Arc<jaq_core::Filter> = prepare_jaq_filter(code)?;
+//     let inputs = jaq_core::RcIter::new(std::iter::empty());
+//     let out = filter
+//         .run((jaq_core::Ctx::new([], &inputs), jaq_json::Val::from(json)))
+//         .map(|x| x.map(Into::<serde_json::Value>::into))
+//         .map(|x| x.map(|x| DynVal::from_string(serde_json::to_string(&x).unwrap())))
+//         .collect::<Result<_, _>>()
+//         .map_err(|e| EvalError::JaqError(e.to_string()))?;
+//     Ok(out)
+// }
 
 #[cfg(test)]
 mod tests {

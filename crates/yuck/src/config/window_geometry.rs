@@ -5,16 +5,16 @@ use crate::{
     error::DiagResult,
     format_diagnostic::ToDiagnostic,
     parser::{ast::Ast, ast_iterator::AstIterator, from_ast::FromAstElementContent},
-    value::{coords, Coords, NumWithUnit},
+    value::{Coords, NumWithUnit, coords},
 };
 
 use super::window_definition::EnumParseError;
 use eww_shared_util::{Span, VarName};
 use serde::{Deserialize, Serialize};
 use simplexpr::{
+    SimplExpr,
     dynval::{DynVal, FromDynVal},
     eval::EvalError,
-    SimplExpr,
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, smart_default::SmartDefault, Serialize, Deserialize, strum::Display)]

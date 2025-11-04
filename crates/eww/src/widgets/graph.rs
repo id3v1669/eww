@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::VecDeque};
 // https://www.figuiere.net/technotes/notes/tn002/
 // https://github.com/gtk-rs/examples/blob/master/src/bin/listbox_model.rs
-use anyhow::{anyhow, Result};
-use gtk::glib::{self, object_subclass, wrapper, Properties};
+use anyhow::{Result, anyhow};
+use gtk::glib::{self, Properties, object_subclass, wrapper};
 use gtk::{cairo, gdk, prelude::*, subclass::prelude::*};
 
 use crate::error_handling_ctx;
@@ -215,10 +215,10 @@ impl WidgetImpl for GraphPriv {
                             max = *value;
                         }
                     }
-                    if let Some((_, value)) = extra_point 
-                        && value > max {
-                            max = value;
-                        
+                    if let Some((_, value)) = extra_point
+                        && value > max
+                    {
+                        max = value;
                     }
                 }
                 (min, max)

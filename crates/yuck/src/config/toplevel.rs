@@ -79,7 +79,7 @@ impl FromAst for TopLevel {
                     msg = format!("Unknown toplevel declaration `{x}`"),
                     label = sym_span,
                     note = format!("Must be one of: {}", TOP_LEVEL_DEFINITION_NAMES.iter().join(", ")),
-                }))
+                }));
             }
         })
     }

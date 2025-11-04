@@ -11,9 +11,9 @@ use crate::{
 };
 use eww_shared_util::{Span, VarName};
 use simplexpr::{
+    SimplExpr,
     dynval::{DynVal, FromDynVal},
     eval::EvalError,
-    SimplExpr,
 };
 
 use super::{

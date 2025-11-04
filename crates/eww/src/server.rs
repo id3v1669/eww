@@ -1,10 +1,10 @@
 use crate::{
+    EwwPaths,
     app::{self, App, DaemonCommand},
     config, daemon_response,
     display_backend::DisplayBackend,
     error_handling_ctx, ipc_server, script_var_handler,
     state::scope_graph::ScopeGraph,
-    EwwPaths,
 };
 use anyhow::{Context, Result};
 
@@ -15,7 +15,7 @@ use std::{
     marker::PhantomData,
     path::Path,
     rc::Rc,
-    sync::{atomic::Ordering, Arc},
+    sync::{Arc, atomic::Ordering},
 };
 use tokio::sync::mpsc::*;
 
@@ -67,7 +67,9 @@ pub fn initialize_server<B: DisplayBackend>(
         }
     });
 
-    unsafe { std::env::set_var("GDK_BACKEND", "wayland"); }
+    unsafe {
+        std::env::set_var("GDK_BACKEND", "wayland");
+    }
 
     gtk::init()?;
 
@@ -97,10 +99,10 @@ pub fn initialize_server<B: DisplayBackend>(
         gtk::StyleContext::add_provider_for_screen(&screen, &app.css_provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 
-    if let Ok((file_id, css)) = config::scss::parse_scss_from_config(app.paths.get_config_dir()) 
-        && let Err(e) = app.load_css(file_id, &css) {
-            error_handling_ctx::print_error(e);
-        
+    if let Ok((file_id, css)) = config::scss::parse_scss_from_config(app.paths.get_config_dir())
+        && let Err(e) = app.load_css(file_id, &css)
+    {
+        error_handling_ctx::print_error(e);
     }
 
     // initialize all the handlers and tasks running asyncronously
@@ -191,10 +193,8 @@ async fn run_filewatch<P: AsRef<Path>>(config_dir: P, evt_send: UnboundedSender<
                 let ext = path.extension().unwrap_or_default();
                 ext == "yuck" || ext == "scss" || ext == "css"
             });
-            if relevant_files_changed 
-                && let Err(err) = tx.send(()) {
-                    log::warn!("Error forwarding file update event: {:?}", err);
-                
+            if relevant_files_changed && let Err(err) = tx.send(()) {
+                log::warn!("Error forwarding file update event: {:?}", err);
             }
         }
         Ok(_) => {}

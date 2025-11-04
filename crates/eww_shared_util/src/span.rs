@@ -56,11 +56,7 @@ impl Span {
 
 impl std::fmt::Display for Span {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.is_dummy() {
-            write!(f, "DUMMY")
-        } else {
-            write!(f, "{}..{}", self.0, self.1)
-        }
+        if self.is_dummy() { write!(f, "DUMMY") } else { write!(f, "{}..{}", self.0, self.1) }
     }
 }
 

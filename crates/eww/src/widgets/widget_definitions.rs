@@ -5,13 +5,13 @@ use crate::{
     util::{self, list_difference},
     widgets::{build_widget::build_gtk_widget, systray},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use codespan_reporting::diagnostic::Severity;
 use eww_shared_util::Spanned;
 
 use gdk::{ModifierType, NotifyType};
 use glib::translate::FromGlib;
-use gtk::{self, glib, prelude::*, DestDefaults, TargetEntry, TargetList};
+use gtk::{self, DestDefaults, TargetEntry, TargetList, glib, prelude::*};
 use gtk::{gdk, pango};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -119,7 +119,7 @@ pub(super) fn widget_use_to_gtk_widget(bargs: &mut BuilderArgs) -> Result<gtk::W
                 msg = format!("referenced unknown widget `{}`", bargs.widget_use.name),
                 label = bargs.widget_use.name_span => "Used here",
             })
-            .into())
+            .into());
         }
     };
     Ok(gtk_widget)

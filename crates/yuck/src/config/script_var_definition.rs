@@ -1,4 +1,4 @@
-use simplexpr::{dynval::DynVal, SimplExpr};
+use simplexpr::{SimplExpr, dynval::DynVal};
 
 use crate::{
     error::{DiagError, DiagResult, DiagResultExt},

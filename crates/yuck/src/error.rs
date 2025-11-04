@@ -1,5 +1,5 @@
 use crate::{
-    format_diagnostic::{lalrpop_error_to_diagnostic, ToDiagnostic},
+    format_diagnostic::{ToDiagnostic, lalrpop_error_to_diagnostic},
     parser::{lexer, parse_error},
 };
 use codespan_reporting::diagnostic;

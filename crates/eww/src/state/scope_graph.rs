@@ -3,9 +3,9 @@ use std::{
     rc::Rc,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use eww_shared_util::{AttrName, VarName};
-use simplexpr::{dynval::DynVal, SimplExpr};
+use simplexpr::{SimplExpr, dynval::DynVal};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::error_handling_ctx;

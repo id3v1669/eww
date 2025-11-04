@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::collections::{HashMap, HashSet};
 
 /// A map that represents a structure of a 1-n relationship with edges that contain data.
@@ -33,10 +33,10 @@ impl<I: Copy + std::hash::Hash + std::cmp::Eq + std::fmt::Debug, T> OneToNElemen
                 self.child_to_parent.remove(child);
             }
         }
-        if let Some((parent, _)) = self.child_to_parent.remove(&scope) 
-            && let Some(children_of_parent) = self.parent_to_children.get_mut(&parent) {
-                children_of_parent.remove(&scope);
-            
+        if let Some((parent, _)) = self.child_to_parent.remove(&scope)
+            && let Some(children_of_parent) = self.parent_to_children.get_mut(&parent)
+        {
+            children_of_parent.remove(&scope);
         }
     }
 

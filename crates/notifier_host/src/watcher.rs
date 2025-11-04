@@ -1,5 +1,5 @@
 use crate::names;
-use zbus::{export::ordered_stream::OrderedStreamExt, interface, Interface};
+use zbus::{export::ordered_stream::OrderedStreamExt, interface, object_server::Interface};
 
 /// An instance of [`org.kde.StatusNotifierWatcher`]. It only tracks what tray items and trays
 /// exist, and doesn't have any logic for displaying items (for that, see [`Host`][`crate::Host`]).
@@ -29,9 +29,9 @@ impl Watcher {
     async fn register_status_notifier_host(
         &mut self,
         service: &str,
-        #[zbus(header)] hdr: zbus::MessageHeader<'_>,
+        #[zbus(header)] hdr: zbus::message::Header<'_>,
         #[zbus(connection)] con: &zbus::Connection,
-        #[zbus(signal_context)] ctxt: zbus::SignalContext<'_>,
+        #[zbus(signal_context)] ctxt: zbus::object_server::SignalEmitter<'_>,
     ) -> zbus::fdo::Result<()> {
         // TODO right now, we convert everything to the unique bus name (something like :1.234).
         // However, it might make more sense to listen to the actual name they give us, so that if
@@ -74,10 +74,8 @@ impl Watcher {
                     did_remove && hosts.is_empty()
                 };
 
-                if removed_last 
-                    && let Err(e) = Watcher::is_status_notifier_host_registered_refresh(&ctxt).await {
-                        log::error!("failed to signal Watcher: {}", e);
-                    
+                if removed_last && let Err(e) = Watcher::is_status_notifier_host_registered_refresh(&ctxt).await {
+                    log::error!("failed to signal Watcher: {}", e);
                 }
                 if let Err(e) = Watcher::status_notifier_host_unregistered(&ctxt).await {
                     log::error!("failed to signal Watcher: {}", e);
@@ -90,11 +88,11 @@ impl Watcher {
 
     /// StatusNotifierHostRegistered signal.
     #[zbus(signal)]
-    async fn status_notifier_host_registered(ctxt: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    async fn status_notifier_host_registered(ctxt: &zbus::object_server::SignalEmitter<'_>) -> zbus::Result<()>;
 
     /// StatusNotifierHostUnregistered signal
     #[zbus(signal)]
-    async fn status_notifier_host_unregistered(ctxt: &zbus::SignalContext<'_>) -> zbus::Result<()>;
+    async fn status_notifier_host_unregistered(ctxt: &zbus::object_server::SignalEmitter<'_>) -> zbus::Result<()>;
 
     /// IsStatusNotifierHostRegistered property
     #[zbus(property)]
@@ -109,9 +107,9 @@ impl Watcher {
     async fn register_status_notifier_item(
         &mut self,
         service: &str,
-        #[zbus(header)] hdr: zbus::MessageHeader<'_>,
+        #[zbus(header)] hdr: zbus::message::Header<'_>,
         #[zbus(connection)] con: &zbus::Connection,
-        #[zbus(signal_context)] ctxt: zbus::SignalContext<'_>,
+        #[zbus(signal_context)] ctxt: zbus::object_server::SignalEmitter<'_>,
     ) -> zbus::fdo::Result<()> {
         let (service, objpath) = parse_service(service, hdr, con).await?;
         let service = zbus::names::BusName::Unique(service);
@@ -160,11 +158,11 @@ impl Watcher {
 
     /// StatusNotifierItemRegistered signal
     #[zbus(signal)]
-    async fn status_notifier_item_registered(ctxt: &zbus::SignalContext<'_>, service: &str) -> zbus::Result<()>;
+    async fn status_notifier_item_registered(ctxt: &zbus::object_server::SignalEmitter<'_>, service: &str) -> zbus::Result<()>;
 
     /// StatusNotifierItemUnregistered signal
     #[zbus(signal)]
-    async fn status_notifier_item_unregistered(ctxt: &zbus::SignalContext<'_>, service: &str) -> zbus::Result<()>;
+    async fn status_notifier_item_unregistered(ctxt: &zbus::object_server::SignalEmitter<'_>, service: &str) -> zbus::Result<()>;
 
     /// RegisteredStatusNotifierItems property
     #[zbus(property)]
@@ -208,23 +206,23 @@ impl Watcher {
 
     /// Equivalent to `is_status_notifier_host_registered_invalidate`, but without requiring
     /// `self`.
-    async fn is_status_notifier_host_registered_refresh(ctxt: &zbus::SignalContext<'_>) -> zbus::Result<()> {
+    async fn is_status_notifier_host_registered_refresh(ctxt: &zbus::object_server::SignalEmitter<'_>) -> zbus::Result<()> {
         zbus::fdo::Properties::properties_changed(
             ctxt,
             Self::name(),
-            &std::collections::HashMap::new(),
-            &["IsStatusNotifierHostRegistered"],
+            std::collections::HashMap::new(),
+            std::borrow::Cow::Borrowed(&["IsStatusNotifierHostRegistered"]),
         )
         .await
     }
 
     /// Equivalent to `registered_status_notifier_items_invalidate`, but without requiring `self`.
-    async fn registered_status_notifier_items_refresh(ctxt: &zbus::SignalContext<'_>) -> zbus::Result<()> {
+    async fn registered_status_notifier_items_refresh(ctxt: &zbus::object_server::SignalEmitter<'_>) -> zbus::Result<()> {
         zbus::fdo::Properties::properties_changed(
             ctxt,
             Self::name(),
-            &std::collections::HashMap::new(),
-            &["RegisteredStatusNotifierItems"],
+            std::collections::HashMap::new(),
+            std::borrow::Cow::Borrowed(&["RegisteredStatusNotifierItems"]),
         )
         .await
     }
@@ -239,7 +237,7 @@ impl Watcher {
 /// status items pass non-conforming values. One common one is just the object path.
 async fn parse_service<'a>(
     service: &'a str,
-    hdr: zbus::MessageHeader<'_>,
+    hdr: zbus::message::Header<'_>,
     con: &zbus::Connection,
 ) -> zbus::fdo::Result<(zbus::names::UniqueName<'static>, &'a str)> {
     if service.starts_with('/') {

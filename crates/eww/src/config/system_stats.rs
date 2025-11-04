@@ -1,12 +1,12 @@
 use crate::util::IterAverage;
 use anyhow::{Context, Result};
 use once_cell::sync::Lazy;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{fs::read_to_string, sync::Mutex};
 use sysinfo::System;
 
 #[cfg(feature = "nvidia")]
-use nvml_wrapper::{enum_wrappers::device::Clock, Nvml};
+use nvml_wrapper::{Nvml, enum_wrappers::device::Clock};
 
 struct RefreshTime(std::time::Instant);
 impl RefreshTime {

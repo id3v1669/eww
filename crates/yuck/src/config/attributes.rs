@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use simplexpr::{dynval::FromDynVal, eval::EvalError, SimplExpr};
+use simplexpr::{SimplExpr, dynval::FromDynVal, eval::EvalError};
 
 use crate::{
     error::{DiagError, DiagResult},

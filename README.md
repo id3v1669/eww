@@ -11,7 +11,6 @@
 
 1) improve automated testing
 2) add support for intel and amd gpus in EWW_GPU
-3) migrate from yuck to json?
 
 # Eww
 
